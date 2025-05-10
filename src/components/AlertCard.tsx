@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Hurricane, Earthquake, Wildfire } from 'lucide-react';
+import { AlertTriangle, CloudLightning, CloudRain, Tornado } from 'lucide-react';
 import { format } from 'date-fns';
 
 type AlertSeverity = 'low' | 'medium' | 'high';
@@ -38,11 +37,13 @@ const AlertCard = ({
   const getIcon = () => {
     switch (type) {
       case 'storm':
-        return <Hurricane className="h-6 w-6 text-blue-500" />;
+        return <CloudLightning className="h-6 w-6 text-blue-500" />;
       case 'earthquake':
-        return <Earthquake className="h-6 w-6 text-orange-500" />;
+        return <Tornado className="h-6 w-6 text-orange-500" />;
       case 'wildfire':
-        return <Wildfire className="h-6 w-6 text-red-500" />;
+        return <AlertTriangle className="h-6 w-6 text-red-500" />;
+      case 'flood':
+        return <CloudRain className="h-6 w-6 text-blue-500" />;
       default:
         return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
     }

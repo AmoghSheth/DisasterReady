@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, Hurricane, Earthquake, Wildfire } from 'lucide-react';
+import { AlertTriangle, CloudLightning, CloudRain, Tornado } from 'lucide-react';
 
 type RiskLevel = 'low' | 'medium' | 'high';
 type DisasterType = 'storm' | 'earthquake' | 'wildfire' | 'flood' | 'general';
@@ -27,11 +27,13 @@ const RiskLevelBadge = ({ level, type, className }: RiskLevelBadgeProps) => {
   const getIcon = () => {
     switch (type) {
       case 'storm':
-        return <Hurricane className="h-5 w-5" />;
+        return <CloudLightning className="h-5 w-5" />;
       case 'earthquake':
-        return <Earthquake className="h-5 w-5" />;
+        return <Tornado className="h-5 w-5" />;
       case 'wildfire':
-        return <Wildfire className="h-5 w-5" />;
+        return <AlertTriangle className="h-5 w-5" color="#ff4400" />;
+      case 'flood':
+        return <CloudRain className="h-5 w-5" />;
       default:
         return <AlertTriangle className="h-5 w-5" />;
     }
