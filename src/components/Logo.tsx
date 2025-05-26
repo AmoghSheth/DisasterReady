@@ -1,11 +1,9 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Shield } from 'lucide-react';
 
 interface LogoProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
   showText?: boolean;
 }
 
@@ -13,18 +11,36 @@ const Logo = ({ className, size = 'md', showText = true }: LogoProps) => {
   const sizeClasses = {
     sm: 'text-lg',
     md: 'text-2xl',
-    lg: 'text-4xl'
+    lg: 'text-4xl',
+    xl: 'text-5xl',
+    xxl: 'text-6xl'
   };
 
-  const iconSizes = {
-    sm: 18,
-    md: 24,
-    lg: 32
+  // Define responsive sizes for the logo - EXTREME SIZES
+  const getLogoSizeClass = () => {
+    switch (size) {
+      case 'sm':
+        return 'w-8 h-8 sm:w-9 sm:h-9';
+      case 'md':
+        return 'w-10 h-10 sm:w-12 sm:h-12';
+      case 'lg':
+        return 'w-16 h-16 sm:w-20 sm:h-20';
+      case 'xl':
+        return 'w-[70vw] h-[70vw] sm:w-[60vw] sm:h-[60vw]'; // EXTREME - 70% of viewport width
+      case 'xxl':
+        return 'w-[80vw] h-[80vw] sm:w-[70vw] sm:h-[70vw]'; // COLOSSAL - 80% of viewport width
+      default:
+        return 'w-10 h-10';
+    }
   };
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <Shield className="text-disaster-blue" size={iconSizes[size]} />
+      <img 
+        src="/logo.png" 
+        alt="DisasterReady Logo" 
+        className={cn('object-contain', getLogoSizeClass())}
+      />
       {showText && (
         <span className={cn('font-bold', sizeClasses[size])}>
           <span className="text-disaster-blue">Disaster</span>

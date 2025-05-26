@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 interface AnimatedButtonProps {
   children: React.ReactNode;
@@ -21,21 +21,36 @@ const AnimatedButton = ({
   const getButtonClass = () => {
     switch (variant) {
       case 'gradient':
-        return 'gradient-button transform transition-all duration-300 hover:scale-105 active:scale-95';
+        return 'gradient-button relative overflow-hidden';
       default:
-        return 'transform transition-all duration-300 hover:scale-105 active:scale-95';
+        return 'relative overflow-hidden';
     }
   };
 
   return (
-    <Button 
-      onClick={onClick} 
-      className={cn(getButtonClass(), className)}
-      variant={variant !== 'gradient' ? variant : 'default'}
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+      className="relative"
     >
-      {icon && <span className="mr-2">{icon}</span>}
-      {children}
-    </Button>
+      {variant === 'gradient' && (
+        <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md -z-10"></div>
+      )}
+      <Button 
+        onClick={onClick} 
+        className={cn(getButtonClass(), className)}
+        variant={variant !== 'gradient' ? variant : 'default'}
+      >
+        {variant === 'gradient' && (
+          <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-green-400 opacity-80 rounded-full" />
+        )}
+        <span className="relative flex items-center justify-center">
+          {icon && <span className="mr-2">{icon}</span>}
+          {children}
+        </span>
+      </Button>
+    </motion.div>
   );
 };
 
