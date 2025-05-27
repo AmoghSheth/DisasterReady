@@ -6,14 +6,23 @@ import { Input } from '@/components/ui/input';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
+<<<<<<< HEAD
 import { useLocation } from '@/contexts/LocationContext';
 
 const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
   const { location, getCurrentLocation, geocodeZipCode } = useLocation();
+=======
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+
+const LocationSetup = () => {
+  const [zipCode, setZipCode] = useState('');
+>>>>>>> 98bb49f12a4d6c9fb2e3da536eb49a5ab4495ed8
   const navigate = useNavigate();
+  const { isLoaded, getCurrentLocation, geocodeZipCode, isLoadingLocation } = useGoogleMaps();
 
   const handleUseGPS = async () => {
+<<<<<<< HEAD
     try {
       await getCurrentLocation();
       
@@ -36,10 +45,30 @@ const LocationSetup = () => {
       }, 5000);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not detect your location");
+=======
+    if (!isLoaded) {
+      toast.error("Maps service is still loading. Please try again.");
+      return;
+    }
+
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        toast.success("Location detected successfully!");
+        // Store location in localStorage for other components
+        localStorage.setItem('userLocation', JSON.stringify(location));
+        navigate('/household-setup');
+      } else {
+        toast.error("Unable to detect location. Please check your browser permissions.");
+      }
+    } catch (error) {
+      toast.error("Location detection failed. Please try entering your ZIP code instead.");
+>>>>>>> 98bb49f12a4d6c9fb2e3da536eb49a5ab4495ed8
     }
   };
 
   const handleContinue = async () => {
+<<<<<<< HEAD
     if (zipCode.length === 5 && /^\d+$/.test(zipCode)) {
       try {
         await geocodeZipCode(zipCode);
@@ -48,7 +77,31 @@ const LocationSetup = () => {
         toast.error(error instanceof Error ? error.message : "Could not find location for this ZIP code");
       }
     } else {
+=======
+    if (zipCode.length !== 5 || !/^\d+$/.test(zipCode)) {
+>>>>>>> 98bb49f12a4d6c9fb2e3da536eb49a5ab4495ed8
       toast.error("Please enter a valid 5-digit ZIP code");
+      return;
+    }
+
+    if (!isLoaded) {
+      toast.error("Maps service is still loading. Please try again.");
+      return;
+    }
+
+    try {
+      const location = await geocodeZipCode(zipCode);
+      if (location) {
+        toast.success("Location found successfully!");
+        // Store location in localStorage for other components
+        localStorage.setItem('userLocation', JSON.stringify(location));
+        localStorage.setItem('userZipCode', zipCode);
+        navigate('/household-setup');
+      } else {
+        toast.error("Unable to find location for this ZIP code.");
+      }
+    } catch (error) {
+      toast.error("Failed to geocode ZIP code. Please try again.");
     }
   };
 
@@ -114,10 +167,17 @@ const LocationSetup = () => {
           <button 
             onClick={handleUseGPS}
             className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
+<<<<<<< HEAD
             disabled={location.isLoading}
           >
             <MapPin className="mr-2" size={18} />
             {location.isLoading ? "Detecting Location..." : "Use Current Location"}
+=======
+            disabled={isLoadingLocation || !isLoaded}
+          >
+            <MapPin className="mr-2" size={18} />
+            {isLoadingLocation ? "Detecting Location..." : "Use Current Location"}
+>>>>>>> 98bb49f12a4d6c9fb2e3da536eb49a5ab4495ed8
           </button>
           
           <div className="pt-4">

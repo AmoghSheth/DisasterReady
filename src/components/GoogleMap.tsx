@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
 
 // Declare Google Maps types
@@ -274,3 +275,86 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 };
 
 export default GoogleMap; 
+=======
+
+import React, { useEffect, useRef } from 'react';
+import { GoogleMapsService, Location } from '@/utils/googleMaps';
+
+interface GoogleMapProps {
+  center: Location;
+  zoom?: number;
+  height?: string;
+  markers?: Array<{
+    position: Location;
+    title?: string;
+    icon?: string;
+  }>;
+  onMapReady?: (map: google.maps.Map) => void;
+}
+
+const GoogleMap = ({ 
+  center, 
+  zoom = 12, 
+  height = '300px', 
+  markers = [],
+  onMapReady 
+}: GoogleMapProps) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const mapsService = useRef<GoogleMapsService | null>(null);
+
+  useEffect(() => {
+    const initializeMap = async () => {
+      if (!mapRef.current || !(window as any).google) return;
+
+      mapsService.current = GoogleMapsService.getInstance();
+      
+      try {
+        const map = await mapsService.current.initializeMap(
+          mapRef.current.id,
+          center,
+          zoom
+        );
+        mapInstanceRef.current = map;
+
+        // Add markers
+        markers.forEach(marker => {
+          mapsService.current?.addMarker(
+            marker.position,
+            marker.title,
+            marker.icon
+          );
+        });
+
+        onMapReady?.(map);
+      } catch (error) {
+        console.error('Error initializing map:', error);
+      }
+    };
+
+    if ((window as any).google && (window as any).google.maps) {
+      initializeMap();
+    } else {
+      const checkGoogleMaps = () => {
+        if ((window as any).google && (window as any).google.maps) {
+          initializeMap();
+        } else {
+          setTimeout(checkGoogleMaps, 100);
+        }
+      };
+      checkGoogleMaps();
+    }
+  }, [center, zoom, markers, onMapReady]);
+
+  return (
+    <div 
+      ref={mapRef}
+      id={`map-${Math.random().toString(36).substr(2, 9)}`}
+      style={{ width: '100%', height }}
+      className="rounded-xl overflow-hidden"
+    />
+  );
+};
+
+export default GoogleMap;
+>>>>>>> 98bb49f12a4d6c9fb2e3da536eb49a5ab4495ed8
