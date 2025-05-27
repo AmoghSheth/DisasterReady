@@ -10,7 +10,7 @@ export const useGoogleMaps = () => {
 
   useEffect(() => {
     const checkGoogleMapsLoaded = () => {
-      if (window.google && window.google.maps) {
+      if ((window as any).google && (window as any).google.maps) {
         setIsLoaded(true);
         mapsService.current = GoogleMapsService.getInstance();
       } else {

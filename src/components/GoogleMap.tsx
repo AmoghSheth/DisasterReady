@@ -27,7 +27,7 @@ const GoogleMap = ({
 
   useEffect(() => {
     const initializeMap = async () => {
-      if (!mapRef.current || !window.google) return;
+      if (!mapRef.current || !(window as any).google) return;
 
       mapsService.current = GoogleMapsService.getInstance();
       
@@ -54,11 +54,11 @@ const GoogleMap = ({
       }
     };
 
-    if (window.google && window.google.maps) {
+    if ((window as any).google && (window as any).google.maps) {
       initializeMap();
     } else {
       const checkGoogleMaps = () => {
-        if (window.google && window.google.maps) {
+        if ((window as any).google && (window as any).google.maps) {
           initializeMap();
         } else {
           setTimeout(checkGoogleMaps, 100);

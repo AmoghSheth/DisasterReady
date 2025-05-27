@@ -32,7 +32,7 @@ export class GoogleMapsService {
     const mapElement = document.getElementById(elementId);
     if (!mapElement) throw new Error(`Element with id ${elementId} not found`);
 
-    this.map = new google.maps.Map(mapElement, {
+    this.map = new (window as any).google.maps.Map(mapElement, {
       center,
       zoom,
       mapTypeControl: false,
@@ -40,8 +40,8 @@ export class GoogleMapsService {
       fullscreenControl: false,
     });
 
-    this.placesService = new google.maps.places.PlacesService(this.map);
-    this.geocoder = new google.maps.Geocoder();
+    this.placesService = new (window as any).google.maps.places.PlacesService(this.map);
+    this.geocoder = new (window as any).google.maps.Geocoder();
 
     return this.map;
   }
@@ -70,11 +70,11 @@ export class GoogleMapsService {
 
   async geocodeZipCode(zipCode: string): Promise<Location> {
     if (!this.geocoder) {
-      this.geocoder = new google.maps.Geocoder();
+      this.geocoder = new (window as any).google.maps.Geocoder();
     }
 
     return new Promise((resolve, reject) => {
-      this.geocoder!.geocode({ address: zipCode }, (results, status) => {
+      this.geocoder!.geocode({ address: zipCode }, (results: any, status: any) => {
         if (status === 'OK' && results && results[0]) {
           const location = results[0].geometry.location;
           resolve({
@@ -95,14 +95,14 @@ export class GoogleMapsService {
 
     return new Promise((resolve, reject) => {
       const request = {
-        location: new google.maps.LatLng(location.lat, location.lng),
+        location: new (window as any).google.maps.LatLng(location.lat, location.lng),
         radius,
-        type: type as google.maps.places.PlaceType,
+        type: type as any,
       };
 
-      this.placesService!.nearbySearch(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const places: PlaceResult[] = results.map(place => ({
+      this.placesService!.nearbySearch(request, (results: any, status: any) => {
+        if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && results) {
+          const places: PlaceResult[] = results.map((place: any) => ({
             name: place.name || 'Unknown',
             address: place.vicinity || 'Address not available',
             location: {
@@ -135,7 +135,7 @@ export class GoogleMapsService {
   addMarker(location: Location, title?: string, icon?: string): google.maps.Marker | null {
     if (!this.map) return null;
 
-    return new google.maps.Marker({
+    return new (window as any).google.maps.Marker({
       position: location,
       map: this.map,
       title,
