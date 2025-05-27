@@ -17,8 +17,6 @@ export interface PlaceResult {
 
 export class GoogleMapsService {
   private static instance: GoogleMapsService;
-  private map: google.maps.Map | null = null;
-  private placesService: google.maps.places.PlacesService | null = null;
   private geocoder: google.maps.Geocoder | null = null;
 
   static getInstance(): GoogleMapsService {
@@ -28,25 +26,11 @@ export class GoogleMapsService {
     return GoogleMapsService.instance;
   }
 
-  async initializeMap(elementId: string, center: Location, zoom: number = 12): Promise<google.maps.Map> {
-    const mapElement = document.getElementById(elementId);
-    if (!mapElement) throw new Error(`Element with id ${elementId} not found`);
-
-    console.log('Initializing Google Map with center:', center);
-    
-    this.map = new google.maps.Map(mapElement, {
-      center,
-      zoom,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    });
-
-    this.placesService = new google.maps.places.PlacesService(this.map);
-    this.geocoder = new google.maps.Geocoder();
-
-    console.log('Google Map initialized successfully');
-    return this.map;
+  private getGeocoder(): google.maps.Geocoder {
+    if (!this.geocoder) {
+      this.geocoder = new google.maps.Geocoder();
+    }
+    return this.geocoder;
   }
 
   async getCurrentLocation(): Promise<Location> {
@@ -78,12 +62,10 @@ export class GoogleMapsService {
   async geocodeZipCode(zipCode: string): Promise<Location> {
     console.log('Geocoding ZIP code:', zipCode);
     
-    if (!this.geocoder) {
-      this.geocoder = new google.maps.Geocoder();
-    }
+    const geocoder = this.getGeocoder();
 
     return new Promise((resolve, reject) => {
-      this.geocoder!.geocode({ 
+      geocoder.geocode({ 
         address: zipCode + ', USA',
         region: 'US'
       }, (results, status) => {
@@ -108,21 +90,19 @@ export class GoogleMapsService {
   async findNearbyPlaces(location: Location, type: string, radius: number = 5000): Promise<PlaceResult[]> {
     console.log('Finding nearby places:', { location, type, radius });
     
-    if (!this.placesService) {
-      // Initialize a temporary map for places service if not already initialized
-      const tempDiv = document.createElement('div');
-      const tempMap = new google.maps.Map(tempDiv, { center: location, zoom: 12 });
-      this.placesService = new google.maps.places.PlacesService(tempMap);
-    }
+    // Create a temporary map for places service
+    const tempDiv = document.createElement('div');
+    const tempMap = new google.maps.Map(tempDiv, { center: location, zoom: 12 });
+    const placesService = new google.maps.places.PlacesService(tempMap);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const request = {
         location: new google.maps.LatLng(location.lat, location.lng),
         radius,
         type: type as any,
       };
 
-      this.placesService!.nearbySearch(request, (results, status) => {
+      placesService.nearbySearch(request, (results, status) => {
         console.log('Places search results:', { results, status, type });
         
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -140,7 +120,7 @@ export class GoogleMapsService {
           resolve(places);
         } else {
           console.error('Places search failed:', status);
-          resolve([]); // Return empty array instead of rejecting to avoid breaking the UI
+          resolve([]);
         }
       });
     });
@@ -156,19 +136,6 @@ export class GoogleMapsService {
       Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  }
-
-  addMarker(location: Location, title?: string, icon?: string): google.maps.Marker | null {
-    if (!this.map) return null;
-
-    console.log('Adding marker:', { location, title, icon });
-    
-    return new google.maps.Marker({
-      position: location,
-      map: this.map,
-      title,
-      icon,
-    });
   }
 
   openDirections(destination: Location): void {

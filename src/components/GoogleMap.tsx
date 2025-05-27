@@ -25,91 +25,99 @@ const GoogleMap = ({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const mapsService = useRef<GoogleMapsService | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
-  const mapId = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
   const [isMapReady, setIsMapReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Clear existing markers
   const clearMarkers = () => {
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const initializeMap = async () => {
       if (!mapRef.current) {
         console.log('Map ref not available');
         return;
       }
 
-      if (!(window as any).google || !(window as any).google.maps) {
+      if (!window.google?.maps) {
         console.log('Google Maps API not loaded yet');
         return;
       }
+
+      if (!isMounted) return;
 
       console.log('Initializing Google Map with center:', center);
       
       try {
         setError(null);
-        mapsService.current = GoogleMapsService.getInstance();
+        setIsLoading(true);
         
-        const map = await mapsService.current.initializeMap(
-          mapId.current,
+        // Create map directly instead of using service for initialization
+        const map = new google.maps.Map(mapRef.current, {
           center,
-          zoom
-        );
-        mapInstanceRef.current = map;
-        setIsMapReady(true);
-
-        // Clear existing markers and add new ones
-        clearMarkers();
-        markers.forEach(marker => {
-          const googleMarker = mapsService.current?.addMarker(
-            marker.position,
-            marker.title,
-            marker.icon
-          );
-          if (googleMarker) {
-            markersRef.current.push(googleMarker);
-          }
+          zoom,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
 
-        onMapReady?.(map);
-        console.log('Map initialization complete');
+        mapInstanceRef.current = map;
+        mapsService.current = GoogleMapsService.getInstance();
+        
+        if (isMounted) {
+          setIsMapReady(true);
+          setIsLoading(false);
+          console.log('Map initialization complete');
+          onMapReady?.(map);
+        }
       } catch (error) {
         console.error('Error initializing map:', error);
-        setError('Failed to load map. Please try refreshing the page.');
+        if (isMounted) {
+          setError('Failed to load map');
+          setIsLoading(false);
+        }
       }
     };
 
     const checkAndInit = () => {
-      if ((window as any).google && (window as any).google.maps) {
+      if (window.google?.maps) {
         initializeMap();
       } else {
-        console.log('Waiting for Google Maps to load...');
-        setTimeout(checkAndInit, 200);
+        const handleMapsLoaded = () => {
+          initializeMap();
+        };
+        window.addEventListener('google-maps-loaded', handleMapsLoaded);
+        return () => window.removeEventListener('google-maps-loaded', handleMapsLoaded);
       }
     };
 
     checkAndInit();
+
+    return () => {
+      isMounted = false;
+      clearMarkers();
+    };
   }, [center, zoom, onMapReady]);
 
   // Update markers when they change
   useEffect(() => {
-    if (mapInstanceRef.current && mapsService.current && isMapReady) {
+    if (mapInstanceRef.current && isMapReady) {
       console.log('Updating markers:', markers);
       
-      // Clear existing markers
       clearMarkers();
       
-      // Add new markers
       markers.forEach(marker => {
-        const googleMarker = mapsService.current?.addMarker(
-          marker.position,
-          marker.title,
-          marker.icon
-        );
-        if (googleMarker) {
+        if (mapInstanceRef.current) {
+          const googleMarker = new google.maps.Marker({
+            position: marker.position,
+            map: mapInstanceRef.current,
+            title: marker.title,
+            icon: marker.icon,
+          });
           markersRef.current.push(googleMarker);
         }
       });
@@ -138,12 +146,11 @@ const GoogleMap = ({
   return (
     <div 
       ref={mapRef}
-      id={mapId.current}
       style={{ width: '100%', height }}
       className="rounded-xl overflow-hidden bg-gray-200 relative"
     >
-      {!isMapReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
             <p className="text-gray-500 text-sm mt-2">Loading map...</p>

@@ -6,15 +6,23 @@ export const useGoogleMaps = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const mapsService = useRef<GoogleMapsService | null>(null);
 
   useEffect(() => {
     const checkGoogleMapsLoaded = () => {
-      if ((window as any).google && (window as any).google.maps) {
+      if (typeof window !== 'undefined' && window.google?.maps) {
         console.log('Google Maps API is available');
         setIsLoaded(true);
-        mapsService.current = GoogleMapsService.getInstance();
-        return true;
+        setError(null);
+        try {
+          mapsService.current = GoogleMapsService.getInstance();
+          return true;
+        } catch (err) {
+          console.error('Error initializing GoogleMapsService:', err);
+          setError('Failed to initialize Google Maps service');
+          return false;
+        }
       }
       return false;
     };
@@ -24,45 +32,47 @@ export const useGoogleMaps = () => {
       return;
     }
 
-    // Listen for the custom event
+    // Listen for load success
     const handleGoogleMapsLoaded = () => {
       console.log('Google Maps loaded event received');
       setTimeout(() => {
-        if (checkGoogleMapsLoaded()) {
-          console.log('Google Maps successfully initialized');
-        }
+        checkGoogleMapsLoaded();
       }, 100);
     };
 
-    window.addEventListener('google-maps-loaded', handleGoogleMapsLoaded);
+    // Listen for load error
+    const handleGoogleMapsError = () => {
+      console.error('Google Maps failed to load');
+      setError('Google Maps failed to load');
+      setIsLoaded(false);
+    };
 
-    // Fallback polling
-    const pollInterval = setInterval(() => {
-      if (checkGoogleMapsLoaded()) {
-        clearInterval(pollInterval);
-      }
-    }, 200);
+    window.addEventListener('google-maps-loaded', handleGoogleMapsLoaded);
+    window.addEventListener('google-maps-error', handleGoogleMapsError);
 
     // Cleanup
     return () => {
       window.removeEventListener('google-maps-loaded', handleGoogleMapsLoaded);
-      clearInterval(pollInterval);
+      window.removeEventListener('google-maps-error', handleGoogleMapsError);
     };
   }, []);
 
   const getCurrentLocation = async (): Promise<Location | null> => {
     if (!mapsService.current) {
       console.error('Google Maps service not available');
+      setError('Google Maps service not available');
       return null;
     }
     
     setIsLoadingLocation(true);
+    setError(null);
     try {
       const location = await mapsService.current.getCurrentLocation();
       setCurrentLocation(location);
       return location;
     } catch (error) {
       console.error('Error getting current location:', error);
+      setError('Error getting current location');
       return null;
     } finally {
       setIsLoadingLocation(false);
@@ -72,15 +82,18 @@ export const useGoogleMaps = () => {
   const geocodeZipCode = async (zipCode: string): Promise<Location | null> => {
     if (!mapsService.current) {
       console.error('Google Maps service not available');
+      setError('Google Maps service not available');
       return null;
     }
     
+    setError(null);
     try {
       const location = await mapsService.current.geocodeZipCode(zipCode);
       setCurrentLocation(location);
       return location;
     } catch (error) {
       console.error('Error geocoding zip code:', error);
+      setError('Error geocoding zip code');
       return null;
     }
   };
@@ -107,6 +120,7 @@ export const useGoogleMaps = () => {
     isLoaded,
     currentLocation,
     isLoadingLocation,
+    error,
     mapsService: mapsService.current,
     getCurrentLocation,
     geocodeZipCode,
