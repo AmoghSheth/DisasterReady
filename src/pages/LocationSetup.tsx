@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GradientBackground from '@/components/GradientBackground';
@@ -7,26 +6,47 @@ import { Input } from '@/components/ui/input';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
+import { useLocation } from '@/contexts/LocationContext';
 
 const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { location, getCurrentLocation, geocodeZipCode } = useLocation();
   const navigate = useNavigate();
 
-  const handleUseGPS = () => {
-    setIsLoading(true);
-    
-    // Mock geolocation API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Location detected successfully!");
-      navigate('/household-setup');
-    }, 1500);
+  const handleUseGPS = async () => {
+    try {
+      await getCurrentLocation();
+      
+      // Use a timeout to ensure we have a valid location
+      setTimeout(() => {
+        if (location.isLoading) {
+          // If still loading after 5 seconds, show an error
+          toast.error("Location detection is taking too long. Please try again or use ZIP code.");
+          return;
+        }
+        
+        if (location.coords) {
+          toast.success("Location detected successfully!");
+          navigate('/household-setup');
+        } else if (location.error) {
+          toast.error(location.error);
+        } else {
+          toast.error("Could not detect your location");
+        }
+      }, 5000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not detect your location");
+    }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (zipCode.length === 5 && /^\d+$/.test(zipCode)) {
-      navigate('/household-setup');
+      try {
+        await geocodeZipCode(zipCode);
+        navigate('/household-setup');
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not find location for this ZIP code");
+      }
     } else {
       toast.error("Please enter a valid 5-digit ZIP code");
     }
@@ -76,6 +96,7 @@ const LocationSetup = () => {
               value={zipCode}
               onChange={(e) => setZipCode(e.target.value.replace(/[^0-9]/g, ''))}
               className="w-full"
+              disabled={location.isLoading}
             />
           </div>
           
@@ -93,10 +114,10 @@ const LocationSetup = () => {
           <button 
             onClick={handleUseGPS}
             className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
-            disabled={isLoading}
+            disabled={location.isLoading}
           >
             <MapPin className="mr-2" size={18} />
-            {isLoading ? "Detecting Location..." : "Use Current Location"}
+            {location.isLoading ? "Detecting Location..." : "Use Current Location"}
           </button>
           
           <div className="pt-4">
@@ -104,6 +125,7 @@ const LocationSetup = () => {
               onClick={handleContinue} 
               className="w-full"
               icon={<ArrowRight size={18} />}
+              disabled={location.isLoading}
             >
               Continue
             </AnimatedButton>

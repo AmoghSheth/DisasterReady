@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-interface AnimatedButtonProps {
+export interface AnimatedButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
   icon?: React.ReactNode;
   variant?: 'default' | 'gradient' | 'secondary' | 'destructive' | 'outline';
+  disabled?: boolean;
 }
 
 const AnimatedButton = ({ 
@@ -16,7 +17,8 @@ const AnimatedButton = ({
   onClick, 
   className, 
   icon,
-  variant = 'default'
+  variant = 'default',
+  disabled = false
 }: AnimatedButtonProps) => {
   const getButtonClass = () => {
     switch (variant) {
@@ -29,10 +31,10 @@ const AnimatedButton = ({
 
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: disabled ? 1 : 1.05 }}
+      whileTap={{ scale: disabled ? 1 : 0.95 }}
       transition={{ type: "spring", stiffness: 400, damping: 17 }}
-      className="relative"
+      className={cn("relative", disabled && "opacity-70")}
     >
       {variant === 'gradient' && (
         <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-md -z-10"></div>
@@ -41,6 +43,7 @@ const AnimatedButton = ({
         onClick={onClick} 
         className={cn(getButtonClass(), className)}
         variant={variant !== 'gradient' ? variant : 'default'}
+        disabled={disabled}
       >
         {variant === 'gradient' && (
           <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-green-400 opacity-80 rounded-full" />
