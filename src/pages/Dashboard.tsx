@@ -1,14 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import BottomNavigation from '@/components/BottomNavigation';
+import GoogleMap from '@/components/GoogleMap';
 import { Bell, MapPin, ArrowRight } from 'lucide-react';
 import RiskLevelBadge from '@/components/RiskLevelBadge';
 import AlertCard from '@/components/AlertCard';
 import { format } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
+import { Location } from '@/utils/googleMaps';
 
 // Mock data
 const mockAlerts = [
@@ -42,6 +44,9 @@ const mockRiskData = [
 
 const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [locationName, setLocationName] = useState('Location');
+  const navigate = useNavigate();
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -49,6 +54,28 @@ const Dashboard = () => {
     }, 1000);
     
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadUserLocation = () => {
+      const savedLocation = localStorage.getItem('userLocation');
+      const savedZipCode = localStorage.getItem('userZipCode');
+      
+      if (savedLocation) {
+        setUserLocation(JSON.parse(savedLocation));
+      } else {
+        // Default to Los Angeles
+        setUserLocation({ lat: 34.0522, lng: -118.2437 });
+      }
+      
+      if (savedZipCode) {
+        setLocationName(`${savedZipCode}`);
+      } else {
+        setLocationName('Los Angeles, CA');
+      }
+    };
+
+    loadUserLocation();
   }, []);
 
   const getRiskColor = (risk: number) => {
@@ -89,7 +116,7 @@ const Dashboard = () => {
           transition={{ delay: 0.1, duration: 0.3 }}
         >
           <MapPin size={18} className="text-gray-500 mr-1" />
-          <span className="text-sm text-gray-500">Los Angeles, CA</span>
+          <span className="text-sm text-gray-500">{locationName}</span>
         </motion.div>
         
         {/* Risk Level Card */}
@@ -172,17 +199,38 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.3 }}
         >
-          <div className="bg-gray-200 h-48 relative">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-gray-500">Map preview showing nearby shelters</p>
+          {userLocation ? (
+            <GoogleMap
+              center={userLocation}
+              zoom={11}
+              height="200px"
+              markers={[
+                {
+                  position: userLocation,
+                  title: 'Your Location',
+                  icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                }
+              ]}
+            />
+          ) : (
+            <div className="bg-gray-200 h-48 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-gray-500">Loading map...</p>
+              </div>
             </div>
-          </div>
+          )}
           <div className="bg-white p-4">
             <h3 className="font-medium">Nearby Emergency Resources</h3>
             <p className="text-sm text-gray-600 mt-1">
-              3 shelters and 2 medical centers within 5 miles
+              Emergency shelters and medical centers in your area
             </p>
-            <Button className="w-full mt-3" variant="outline">View Map</Button>
+            <Button 
+              className="w-full mt-3" 
+              variant="outline"
+              onClick={() => navigate('/map')}
+            >
+              View Full Map
+            </Button>
           </div>
         </motion.div>
       </div>

@@ -7,28 +7,58 @@ import { Input } from '@/components/ui/input';
 import { MapPin, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
+import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
 const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { isLoaded, getCurrentLocation, geocodeZipCode, isLoadingLocation } = useGoogleMaps();
 
-  const handleUseGPS = () => {
-    setIsLoading(true);
-    
-    // Mock geolocation API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Location detected successfully!");
-      navigate('/household-setup');
-    }, 1500);
+  const handleUseGPS = async () => {
+    if (!isLoaded) {
+      toast.error("Maps service is still loading. Please try again.");
+      return;
+    }
+
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        toast.success("Location detected successfully!");
+        // Store location in localStorage for other components
+        localStorage.setItem('userLocation', JSON.stringify(location));
+        navigate('/household-setup');
+      } else {
+        toast.error("Unable to detect location. Please check your browser permissions.");
+      }
+    } catch (error) {
+      toast.error("Location detection failed. Please try entering your ZIP code instead.");
+    }
   };
 
-  const handleContinue = () => {
-    if (zipCode.length === 5 && /^\d+$/.test(zipCode)) {
-      navigate('/household-setup');
-    } else {
+  const handleContinue = async () => {
+    if (zipCode.length !== 5 || !/^\d+$/.test(zipCode)) {
       toast.error("Please enter a valid 5-digit ZIP code");
+      return;
+    }
+
+    if (!isLoaded) {
+      toast.error("Maps service is still loading. Please try again.");
+      return;
+    }
+
+    try {
+      const location = await geocodeZipCode(zipCode);
+      if (location) {
+        toast.success("Location found successfully!");
+        // Store location in localStorage for other components
+        localStorage.setItem('userLocation', JSON.stringify(location));
+        localStorage.setItem('userZipCode', zipCode);
+        navigate('/household-setup');
+      } else {
+        toast.error("Unable to find location for this ZIP code.");
+      }
+    } catch (error) {
+      toast.error("Failed to geocode ZIP code. Please try again.");
     }
   };
 
@@ -93,10 +123,10 @@ const LocationSetup = () => {
           <button 
             onClick={handleUseGPS}
             className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
-            disabled={isLoading}
+            disabled={isLoadingLocation || !isLoaded}
           >
             <MapPin className="mr-2" size={18} />
-            {isLoading ? "Detecting Location..." : "Use Current Location"}
+            {isLoadingLocation ? "Detecting Location..." : "Use Current Location"}
           </button>
           
           <div className="pt-4">
