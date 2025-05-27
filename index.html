@@ -6,11 +6,35 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DisasterReady</title>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBtNkwIOuJ6GATeMJHdOtlfIPDKwWAEzvg&libraries=places"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script src="https://cdn.gpteng.co/gptengineer.js" defer></script>
+    <script>
+      function initGoogleMaps() {
+        console.log('Google Maps API loaded successfully');
+        window.googleMapsLoaded = true;
+        window.dispatchEvent(new Event('google-maps-loaded'));
+      }
+      
+      function loadGoogleMaps() {
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBtNkwIOuJ6GATeMJHdOtlfIPDKwWAEzvg&libraries=places&callback=initGoogleMaps';
+        script.async = true;
+        script.defer = true;
+        script.onerror = function() {
+          console.error('Failed to load Google Maps API');
+        };
+        document.head.appendChild(script);
+      }
+      
+      // Load Google Maps when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadGoogleMaps);
+      } else {
+        loadGoogleMaps();
+      }
+    </script>
   </body>
 </html>

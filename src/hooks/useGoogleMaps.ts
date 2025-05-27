@@ -11,17 +11,50 @@ export const useGoogleMaps = () => {
   useEffect(() => {
     const checkGoogleMapsLoaded = () => {
       if ((window as any).google && (window as any).google.maps) {
+        console.log('Google Maps API is available');
         setIsLoaded(true);
         mapsService.current = GoogleMapsService.getInstance();
-      } else {
-        setTimeout(checkGoogleMapsLoaded, 100);
+        return true;
       }
+      return false;
     };
-    checkGoogleMapsLoaded();
+
+    // Check if already loaded
+    if (checkGoogleMapsLoaded()) {
+      return;
+    }
+
+    // Listen for the custom event
+    const handleGoogleMapsLoaded = () => {
+      console.log('Google Maps loaded event received');
+      setTimeout(() => {
+        if (checkGoogleMapsLoaded()) {
+          console.log('Google Maps successfully initialized');
+        }
+      }, 100);
+    };
+
+    window.addEventListener('google-maps-loaded', handleGoogleMapsLoaded);
+
+    // Fallback polling
+    const pollInterval = setInterval(() => {
+      if (checkGoogleMapsLoaded()) {
+        clearInterval(pollInterval);
+      }
+    }, 200);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('google-maps-loaded', handleGoogleMapsLoaded);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   const getCurrentLocation = async (): Promise<Location | null> => {
-    if (!mapsService.current) return null;
+    if (!mapsService.current) {
+      console.error('Google Maps service not available');
+      return null;
+    }
     
     setIsLoadingLocation(true);
     try {
@@ -37,7 +70,10 @@ export const useGoogleMaps = () => {
   };
 
   const geocodeZipCode = async (zipCode: string): Promise<Location | null> => {
-    if (!mapsService.current) return null;
+    if (!mapsService.current) {
+      console.error('Google Maps service not available');
+      return null;
+    }
     
     try {
       const location = await mapsService.current.geocodeZipCode(zipCode);
@@ -54,7 +90,10 @@ export const useGoogleMaps = () => {
     type: string, 
     radius?: number
   ): Promise<PlaceResult[]> => {
-    if (!mapsService.current) return [];
+    if (!mapsService.current) {
+      console.error('Google Maps service not available');
+      return [];
+    }
     
     try {
       return await mapsService.current.findNearbyPlaces(location, type, radius);
