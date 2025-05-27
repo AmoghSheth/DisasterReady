@@ -19,11 +19,20 @@ const Map = () => {
 
   useEffect(() => {
     const loadUserLocation = () => {
+      console.log('Loading user location from localStorage...');
       const savedLocation = localStorage.getItem('userLocation');
       if (savedLocation) {
-        const location = JSON.parse(savedLocation);
-        setUserLocation(location);
+        try {
+          const location = JSON.parse(savedLocation);
+          console.log('Found saved location:', location);
+          setUserLocation(location);
+        } catch (error) {
+          console.error('Error parsing saved location:', error);
+          // Default to Los Angeles if parsing fails
+          setUserLocation({ lat: 34.0522, lng: -118.2437 });
+        }
       } else {
+        console.log('No saved location found, using default');
         // Default to Los Angeles if no location saved
         setUserLocation({ lat: 34.0522, lng: -118.2437 });
       }
@@ -34,8 +43,12 @@ const Map = () => {
 
   useEffect(() => {
     const loadNearbyPlaces = async () => {
-      if (!userLocation || !isLoaded) return;
+      if (!userLocation || !isLoaded) {
+        console.log('Cannot load nearby places:', { userLocation, isLoaded });
+        return;
+      }
 
+      console.log('Loading nearby places for location:', userLocation);
       setIsLoading(true);
       try {
         // Find emergency shelters (using lodging and local_government_office as proxies)
@@ -48,6 +61,7 @@ const Map = () => {
           distance: mapsService?.calculateDistance(userLocation, place.location) || 0
         })).sort((a, b) => (a.distance || 0) - (b.distance || 0)).slice(0, 5);
 
+        console.log('Found shelters:', allShelters);
         setShelters(allShelters);
 
         // Find medical facilities
@@ -57,6 +71,7 @@ const Map = () => {
           distance: mapsService?.calculateDistance(userLocation, place.location) || 0
         })).sort((a, b) => (a.distance || 0) - (b.distance || 0)).slice(0, 3);
 
+        console.log('Found medical facilities:', medicalResults);
         setMedicalFacilities(medicalResults);
       } catch (error) {
         console.error('Error loading nearby places:', error);
@@ -69,8 +84,13 @@ const Map = () => {
   }, [userLocation, isLoaded, findNearbyPlaces, mapsService]);
 
   const handleGetDirections = (destination: Location) => {
+    console.log('Getting directions to:', destination);
     if (mapsService) {
       mapsService.openDirections(destination);
+    } else {
+      // Fallback to direct Google Maps URL
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}`;
+      window.open(url, '_blank');
     }
   };
 
@@ -105,6 +125,7 @@ const Map = () => {
       });
     }
 
+    console.log('Generated markers for tab', currentTab, ':', markers);
     return markers;
   };
 
@@ -146,12 +167,21 @@ const Map = () => {
           
           {/* Google Map */}
           <div className="mb-4">
-            <GoogleMap
-              center={userLocation}
-              zoom={12}
-              height="250px"
-              markers={getMapMarkers(activeTab)}
-            />
+            {!isLoaded ? (
+              <div className="h-64 bg-gray-200 rounded-xl flex items-center justify-center">
+                <p className="text-gray-500">Loading Google Maps...</p>
+              </div>
+            ) : (
+              <GoogleMap
+                center={userLocation}
+                zoom={12}
+                height="250px"
+                markers={getMapMarkers(activeTab)}
+                onMapReady={(map) => {
+                  console.log('Google Map is ready:', map);
+                }}
+              />
+            )}
           </div>
           
           <TabsContent value="shelters" className="mt-0">

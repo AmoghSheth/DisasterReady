@@ -11,6 +11,7 @@ import { useGoogleMaps } from '@/hooks/useGoogleMaps';
 
 const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   const { isLoaded, getCurrentLocation, geocodeZipCode, isLoadingLocation } = useGoogleMaps();
 
@@ -20,6 +21,7 @@ const LocationSetup = () => {
       return;
     }
 
+    setIsProcessing(true);
     try {
       const location = await getCurrentLocation();
       if (location) {
@@ -31,7 +33,10 @@ const LocationSetup = () => {
         toast.error("Unable to detect location. Please check your browser permissions.");
       }
     } catch (error) {
+      console.error('GPS location error:', error);
       toast.error("Location detection failed. Please try entering your ZIP code instead.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -46,9 +51,12 @@ const LocationSetup = () => {
       return;
     }
 
+    setIsProcessing(true);
     try {
+      console.log('Geocoding ZIP code:', zipCode);
       const location = await geocodeZipCode(zipCode);
       if (location) {
+        console.log('Geocoded location:', location);
         toast.success("Location found successfully!");
         // Store location in localStorage for other components
         localStorage.setItem('userLocation', JSON.stringify(location));
@@ -58,7 +66,10 @@ const LocationSetup = () => {
         toast.error("Unable to find location for this ZIP code.");
       }
     } catch (error) {
+      console.error('ZIP code geocoding error:', error);
       toast.error("Failed to geocode ZIP code. Please try again.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -106,7 +117,7 @@ const LocationSetup = () => {
               value={zipCode}
               onChange={(e) => setZipCode(e.target.value.replace(/[^0-9]/g, ''))}
               className="w-full"
-              disabled={isLoadingLocation}
+              disabled={isProcessing || isLoadingLocation}
             />
           </div>
           
@@ -123,11 +134,11 @@ const LocationSetup = () => {
           
           <button 
             onClick={handleUseGPS}
-            className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
-            disabled={isLoadingLocation || !isLoaded}
+            className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors disabled:opacity-50"
+            disabled={isProcessing || isLoadingLocation || !isLoaded}
           >
             <MapPin className="mr-2" size={18} />
-            {isLoadingLocation ? "Detecting Location..." : "Use Current Location"}
+            {isProcessing || isLoadingLocation ? "Detecting Location..." : "Use Current Location"}
           </button>
           
           <div className="pt-4">
@@ -135,7 +146,7 @@ const LocationSetup = () => {
               onClick={handleContinue} 
               className="w-full"
               icon={<ArrowRight size={18} />}
-              disabled={isLoadingLocation}
+              disabled={isProcessing || isLoadingLocation}
             >
               Continue
             </AnimatedButton>

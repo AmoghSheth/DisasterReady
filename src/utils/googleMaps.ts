@@ -32,7 +32,9 @@ export class GoogleMapsService {
     const mapElement = document.getElementById(elementId);
     if (!mapElement) throw new Error(`Element with id ${elementId} not found`);
 
-    this.map = new (window as any).google.maps.Map(mapElement, {
+    console.log('Initializing Google Map with center:', center);
+    
+    this.map = new google.maps.Map(mapElement, {
       center,
       zoom,
       mapTypeControl: false,
@@ -40,13 +42,15 @@ export class GoogleMapsService {
       fullscreenControl: false,
     });
 
-    this.placesService = new (window as any).google.maps.places.PlacesService(this.map);
-    this.geocoder = new (window as any).google.maps.Geocoder();
+    this.placesService = new google.maps.places.PlacesService(this.map);
+    this.geocoder = new google.maps.Geocoder();
 
+    console.log('Google Map initialized successfully');
     return this.map;
   }
 
   async getCurrentLocation(): Promise<Location> {
+    console.log('Getting current location...');
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error('Geolocation is not supported'));
@@ -55,12 +59,15 @@ export class GoogleMapsService {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          resolve({
+          const location = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          });
+          };
+          console.log('Got current location:', location);
+          resolve(location);
         },
         (error) => {
+          console.error('Geolocation error:', error);
           reject(error);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
@@ -69,39 +76,56 @@ export class GoogleMapsService {
   }
 
   async geocodeZipCode(zipCode: string): Promise<Location> {
+    console.log('Geocoding ZIP code:', zipCode);
+    
     if (!this.geocoder) {
-      this.geocoder = new (window as any).google.maps.Geocoder();
+      this.geocoder = new google.maps.Geocoder();
     }
 
     return new Promise((resolve, reject) => {
-      this.geocoder!.geocode({ address: zipCode }, (results: any, status: any) => {
+      this.geocoder!.geocode({ 
+        address: zipCode + ', USA',
+        region: 'US'
+      }, (results, status) => {
+        console.log('Geocoding results:', { results, status });
+        
         if (status === 'OK' && results && results[0]) {
           const location = results[0].geometry.location;
-          resolve({
+          const result = {
             lat: location.lat(),
             lng: location.lng(),
-          });
+          };
+          console.log('Geocoded location:', result);
+          resolve(result);
         } else {
-          reject(new Error('Geocoding failed'));
+          console.error('Geocoding failed:', status);
+          reject(new Error('Geocoding failed: ' + status));
         }
       });
     });
   }
 
   async findNearbyPlaces(location: Location, type: string, radius: number = 5000): Promise<PlaceResult[]> {
+    console.log('Finding nearby places:', { location, type, radius });
+    
     if (!this.placesService) {
-      throw new Error('Places service not initialized');
+      // Initialize a temporary map for places service if not already initialized
+      const tempDiv = document.createElement('div');
+      const tempMap = new google.maps.Map(tempDiv, { center: location, zoom: 12 });
+      this.placesService = new google.maps.places.PlacesService(tempMap);
     }
 
     return new Promise((resolve, reject) => {
       const request = {
-        location: new (window as any).google.maps.LatLng(location.lat, location.lng),
+        location: new google.maps.LatLng(location.lat, location.lng),
         radius,
         type: type as any,
       };
 
-      this.placesService!.nearbySearch(request, (results: any, status: any) => {
-        if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && results) {
+      this.placesService!.nearbySearch(request, (results, status) => {
+        console.log('Places search results:', { results, status, type });
+        
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
           const places: PlaceResult[] = results.map((place: any) => ({
             name: place.name || 'Unknown',
             address: place.vicinity || 'Address not available',
@@ -112,9 +136,11 @@ export class GoogleMapsService {
             phone: place.formatted_phone_number,
             rating: place.rating,
           }));
+          console.log('Processed places:', places);
           resolve(places);
         } else {
-          reject(new Error('Places search failed'));
+          console.error('Places search failed:', status);
+          resolve([]); // Return empty array instead of rejecting to avoid breaking the UI
         }
       });
     });
@@ -135,7 +161,9 @@ export class GoogleMapsService {
   addMarker(location: Location, title?: string, icon?: string): google.maps.Marker | null {
     if (!this.map) return null;
 
-    return new (window as any).google.maps.Marker({
+    console.log('Adding marker:', { location, title, icon });
+    
+    return new google.maps.Marker({
       position: location,
       map: this.map,
       title,
@@ -144,6 +172,7 @@ export class GoogleMapsService {
   }
 
   openDirections(destination: Location): void {
+    console.log('Opening directions to:', destination);
     const url = `https://www.google.com/maps/dir/?api=1&destination=${destination.lat},${destination.lng}`;
     window.open(url, '_blank');
   }

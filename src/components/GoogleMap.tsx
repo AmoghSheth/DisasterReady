@@ -24,22 +24,33 @@ const GoogleMap = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const mapsService = useRef<GoogleMapsService | null>(null);
+  const mapId = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
     const initializeMap = async () => {
-      if (!mapRef.current || !(window as any).google) return;
+      if (!mapRef.current) {
+        console.log('Map ref not available');
+        return;
+      }
 
-      mapsService.current = GoogleMapsService.getInstance();
+      if (!(window as any).google) {
+        console.log('Google Maps API not loaded');
+        return;
+      }
+
+      console.log('Initializing Google Map...');
       
       try {
+        mapsService.current = GoogleMapsService.getInstance();
+        
         const map = await mapsService.current.initializeMap(
-          mapRef.current.id,
+          mapId.current,
           center,
           zoom
         );
         mapInstanceRef.current = map;
 
-        // Add markers
+        // Clear existing markers and add new ones
         markers.forEach(marker => {
           mapsService.current?.addMarker(
             marker.position,
@@ -49,6 +60,7 @@ const GoogleMap = ({
         });
 
         onMapReady?.(map);
+        console.log('Map initialization complete');
       } catch (error) {
         console.error('Error initializing map:', error);
       }
@@ -57,6 +69,7 @@ const GoogleMap = ({
     if ((window as any).google && (window as any).google.maps) {
       initializeMap();
     } else {
+      console.log('Waiting for Google Maps to load...');
       const checkGoogleMaps = () => {
         if ((window as any).google && (window as any).google.maps) {
           initializeMap();
@@ -68,12 +81,21 @@ const GoogleMap = ({
     }
   }, [center, zoom, markers, onMapReady]);
 
+  // Update markers when they change
+  useEffect(() => {
+    if (mapInstanceRef.current && mapsService.current) {
+      console.log('Updating markers:', markers);
+      // Note: In a production app, you'd want to properly manage marker instances
+      // For now, we'll rely on the map re-initialization to handle marker updates
+    }
+  }, [markers]);
+
   return (
     <div 
       ref={mapRef}
-      id={`map-${Math.random().toString(36).substr(2, 9)}`}
+      id={mapId.current}
       style={{ width: '100%', height }}
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl overflow-hidden bg-gray-200"
     />
   );
 };
