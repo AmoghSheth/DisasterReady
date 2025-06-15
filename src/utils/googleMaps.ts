@@ -65,11 +65,16 @@ export class GoogleMapsService {
     const geocoder = this.getGeocoder();
 
     return new Promise((resolve, reject) => {
+      // More specific geocoding request
       geocoder.geocode({ 
-        address: zipCode + ', USA',
-        region: 'US'
+        address: `${zipCode}, United States`,
+        region: 'US',
+        componentRestrictions: {
+          country: 'US',
+          postalCode: zipCode
+        }
       }, (results, status) => {
-        console.log('Geocoding results:', { results, status });
+        console.log('Geocoding results for', zipCode, ':', { results, status });
         
         if (status === 'OK' && results && results[0]) {
           const location = results[0].geometry.location;
@@ -77,11 +82,11 @@ export class GoogleMapsService {
             lat: location.lat(),
             lng: location.lng(),
           };
-          console.log('Geocoded location:', result);
+          console.log('Successfully geocoded', zipCode, 'to:', result);
           resolve(result);
         } else {
-          console.error('Geocoding failed:', status);
-          reject(new Error('Geocoding failed: ' + status));
+          console.error('Geocoding failed for', zipCode, ':', status);
+          reject(new Error(`Geocoding failed for ${zipCode}: ${status}`));
         }
       });
     });

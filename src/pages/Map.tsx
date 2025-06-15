@@ -20,20 +20,38 @@ const Map = () => {
   const { findNearbyPlaces, mapsService } = useGoogleMaps();
 
   useEffect(() => {
+    console.log('Map component mounting, location context:', location);
+    
+    // First try to get location from localStorage (set by LocationSetup)
+    const savedLocation = localStorage.getItem('userLocation');
+    if (savedLocation) {
+      try {
+        const parsedLocation = JSON.parse(savedLocation);
+        console.log('Found saved location in localStorage:', parsedLocation);
+        setUserLocation(parsedLocation);
+        return;
+      } catch (error) {
+        console.error('Error parsing saved location:', error);
+      }
+    }
+    
+    // Fallback to context location
     if (location.coords) {
       const mapLocation = {
         lat: location.coords.latitude,
         lng: location.coords.longitude
       };
-      console.log('Setting user location from context:', mapLocation);
+      console.log('Using location from context:', mapLocation);
       setUserLocation(mapLocation);
     } else {
-      console.log('No location in context, using default');
+      console.log('No location found, using default (Los Angeles)');
       setUserLocation({ lat: 34.0522, lng: -118.2437 });
     }
-  }, [location.coords]);
+  }, []);
 
   useEffect(() => {
+    let isMounted = true; // Prevent state updates if component unmounts
+    
     const loadNearbyPlaces = async () => {
       if (!userLocation) {
         console.log('Cannot load nearby places: no user location');
@@ -42,28 +60,21 @@ const Map = () => {
 
       console.log('Loading nearby places for location:', userLocation);
       setIsLoading(true);
+      
       try {
-        // Find emergency shelters - use multiple place types with better search terms
+        // Find emergency shelters with better search strategy
         console.log('Searching for shelters near:', userLocation);
-        const [
-          schoolResults,
-          governmentResults, 
-          churchResults,
-          communityResults
-        ] = await Promise.all([
-          findNearbyPlaces(userLocation, 'school', 25000),
-          findNearbyPlaces(userLocation, 'local_government_office', 20000),
-          findNearbyPlaces(userLocation, 'church', 15000),
-          findNearbyPlaces(userLocation, 'community_center', 15000)
+        const shelterSearches = await Promise.all([
+          findNearbyPlaces(userLocation, 'school', 20000),
+          findNearbyPlaces(userLocation, 'local_government_office', 15000),
+          findNearbyPlaces(userLocation, 'church', 12000)
         ]);
         
-        // Combine and add distance calculation
-        const allShelters = [
-          ...schoolResults.slice(0, 3),
-          ...governmentResults.slice(0, 2),
-          ...churchResults.slice(0, 2),
-          ...communityResults.slice(0, 2)
-        ]
+        if (!isMounted) return;
+        
+        // Combine and process results
+        const allShelterResults = shelterSearches.flat();
+        const processedShelters = allShelterResults
           .map(place => ({
             ...place,
             distance: mapsService.calculateDistance(userLocation, place.location)
@@ -71,22 +82,22 @@ const Map = () => {
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 6);
 
-        console.log('Found potential shelters:', allShelters);
-        setShelters(allShelters);
+        console.log('Processed shelters:', processedShelters);
+        if (isMounted) {
+          setShelters(processedShelters);
+        }
 
-        // Find medical facilities with better coverage
+        // Find medical facilities
         console.log('Searching for medical facilities near:', userLocation);
-        const [hospitalResults, pharmacyResults, clinicResults] = await Promise.all([
-          findNearbyPlaces(userLocation, 'hospital', 50000),
-          findNearbyPlaces(userLocation, 'pharmacy', 25000),
-          findNearbyPlaces(userLocation, 'doctor', 30000)
+        const medicalSearches = await Promise.all([
+          findNearbyPlaces(userLocation, 'hospital', 30000),
+          findNearbyPlaces(userLocation, 'pharmacy', 20000)
         ]);
         
-        const medicalResults = [
-          ...hospitalResults.slice(0, 3),
-          ...pharmacyResults.slice(0, 2),
-          ...clinicResults.slice(0, 2)
-        ]
+        if (!isMounted) return;
+        
+        const allMedicalResults = medicalSearches.flat();
+        const processedMedical = allMedicalResults
           .map(place => ({
             ...place,
             distance: mapsService.calculateDistance(userLocation, place.location)
@@ -94,17 +105,26 @@ const Map = () => {
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 5);
 
-        console.log('Found medical facilities:', medicalResults);
-        setMedicalFacilities(medicalResults);
+        console.log('Processed medical facilities:', processedMedical);
+        if (isMounted) {
+          setMedicalFacilities(processedMedical);
+        }
       } catch (error) {
         console.error('Error loading nearby places:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadNearbyPlaces();
-  }, [userLocation, findNearbyPlaces, mapsService]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [userLocation]); // Only depend on userLocation, not the functions
 
   const handleGetDirections = (destination: Location) => {
     console.log('Getting directions to:', destination);
