@@ -11,6 +11,7 @@ import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut } from 'lucide-rea
 import { Separator } from '@/components/ui/separator';
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from '@/contexts/LocationContext';
 
 const Profile = () => {
   const [darkMode, setDarkMode] = useState(false);
@@ -18,18 +19,20 @@ const Profile = () => {
   const [language, setLanguage] = useState('english');
   const [locationName, setLocationName] = useState('Your Location');
   const navigate = useNavigate();
+  const { location } = useLocation();
 
   useEffect(() => {
     const loadLocationName = () => {
-      const savedZipCode = localStorage.getItem('userZipCode');
-      if (savedZipCode) {
-        setLocationName(savedZipCode);
+      if (location.city && location.state) {
+        setLocationName(`${location.city}, ${location.state}`);
+      } else if (location.zipCode) {
+        setLocationName(location.zipCode);
       } else {
         setLocationName('Location not set');
       }
     };
     loadLocationName();
-  }, []);
+  }, [location]);
   
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked);
@@ -227,7 +230,12 @@ const Profile = () => {
           transition={{ delay: 0.5, duration: 0.3 }}
           className="space-y-4"
         >
-          <Button variant="outline" className="w-full flex items-center justify-center" size="lg">
+          <Button 
+            variant="outline" 
+            className="w-full flex items-center justify-center" 
+            size="lg"
+            onClick={() => navigate('/privacy-policy')}
+          >
             <Shield className="mr-2" size={18} />
             Privacy Policy
           </Button>

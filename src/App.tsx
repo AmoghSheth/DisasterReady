@@ -12,6 +12,7 @@ import Alerts from "./pages/Alerts";
 import Plan from "./pages/Plan";
 import Map from "./pages/Map";
 import Profile from "./pages/Profile";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/plan" element={<Plan />} />
             <Route path="/map" element={<Map />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
