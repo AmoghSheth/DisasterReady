@@ -57,21 +57,62 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const loadUserLocation = () => {
+    const loadUserLocation = async () => {
       const savedLocation = localStorage.getItem('userLocation');
       const savedZipCode = localStorage.getItem('userZipCode');
       
       if (savedLocation) {
-        setUserLocation(JSON.parse(savedLocation));
+        try {
+          const parsedLocation = JSON.parse(savedLocation);
+          setUserLocation(parsedLocation);
+          
+          // If we have a ZIP code, use it for display
+          if (savedZipCode) {
+            setLocationName(savedZipCode);
+          } else {
+            // Try to reverse geocode the location to get a readable name
+            try {
+              const response = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${parsedLocation.lat},${parsedLocation.lng}&key=AIzaSyCOUApwzid4BeHZb3AE_sy8KILH0e0xkco`
+              );
+              const data = await response.json();
+              
+              if (data.results && data.results[0]) {
+                const addressComponents = data.results[0].address_components;
+                let city = '';
+                let state = '';
+                
+                addressComponents.forEach((component: any) => {
+                  if (component.types.includes('locality')) {
+                    city = component.long_name;
+                  } else if (component.types.includes('administrative_area_level_1')) {
+                    state = component.short_name;
+                  }
+                });
+                
+                if (city && state) {
+                  setLocationName(`${city}, ${state}`);
+                } else {
+                  setLocationName('Your Location');
+                }
+              } else {
+                setLocationName('Your Location');
+              }
+            } catch (error) {
+              console.error('Error reverse geocoding:', error);
+              setLocationName('Your Location');
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing saved location:', error);
+          // Only fallback to LA if there's an error parsing
+          setUserLocation({ lat: 34.0522, lng: -118.2437 });
+          setLocationName('Location Setup Required');
+        }
       } else {
-        // Default to Los Angeles
-        setUserLocation({ lat: 34.0522, lng: -118.2437 });
-      }
-      
-      if (savedZipCode) {
-        setLocationName(`${savedZipCode}`);
-      } else {
-        setLocationName('Los Angeles, CA');
+        // No saved location - prompt user to set location
+        setUserLocation(null);
+        setLocationName('Location Setup Required');
       }
     };
 
@@ -116,7 +157,18 @@ const Dashboard = () => {
           transition={{ delay: 0.1, duration: 0.3 }}
         >
           <MapPin size={18} className="text-gray-500 mr-1" />
-          <span className="text-sm text-gray-500">{locationName}</span>
+          <span className="text-sm text-gray-500">
+            {locationName === 'Location Setup Required' ? (
+              <button 
+                onClick={() => navigate('/location-setup')}
+                className="text-disaster-blue underline"
+              >
+                Set Your Location
+              </button>
+            ) : (
+              locationName
+            )}
+          </span>
         </motion.div>
         
         {/* Risk Level Card */}

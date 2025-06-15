@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import BottomNavigation from '@/components/BottomNavigation';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,26 @@ import { Input } from '@/components/ui/input';
 import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from "sonner";
+import { useNavigate } from 'react-router-dom';
 
 const Profile = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [language, setLanguage] = useState('english');
+  const [locationName, setLocationName] = useState('Your Location');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadLocationName = () => {
+      const savedZipCode = localStorage.getItem('userZipCode');
+      if (savedZipCode) {
+        setLocationName(savedZipCode);
+      } else {
+        setLocationName('Location not set');
+      }
+    };
+    loadLocationName();
+  }, []);
   
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked);
@@ -91,7 +106,16 @@ const Profile = () => {
                 <Label htmlFor="location" className="text-sm text-gray-600">
                   Location
                 </Label>
-                <Input id="location" value="Los Angeles, CA" readOnly className="bg-gray-50" />
+                <div className="flex space-x-2">
+                  <Input id="location" value={locationName} readOnly className="bg-gray-50 flex-1" />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/location-setup')}
+                  >
+                    Update
+                  </Button>
+                </div>
               </div>
             </div>
             
