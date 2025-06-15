@@ -48,8 +48,12 @@ const LocationSetup = () => {
       if (location) {
         console.log('Geocoded location:', location);
         toast.success("Location found successfully!");
-        // Store location in localStorage for other components
-        localStorage.setItem('userLocation', JSON.stringify(location));
+        // Store location in localStorage in the format expected by Map component
+        const mapLocation = {
+          lat: location.lat,
+          lng: location.lng
+        };
+        localStorage.setItem('userLocation', JSON.stringify(mapLocation));
         localStorage.setItem('userZipCode', zipCode);
         navigate('/household-setup');
       } else {

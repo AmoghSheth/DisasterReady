@@ -106,16 +106,18 @@ export class GoogleMapsService {
         console.log('Places search results:', { results, status, type });
         
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const places: PlaceResult[] = results.map((place: any) => ({
-            name: place.name || 'Unknown',
-            address: place.vicinity || 'Address not available',
-            location: {
-              lat: place.geometry?.location?.lat() || 0,
-              lng: place.geometry?.location?.lng() || 0,
-            },
-            phone: place.formatted_phone_number,
-            rating: place.rating,
-          }));
+          const places: PlaceResult[] = results
+            .filter((place: any) => place.business_status !== 'CLOSED_PERMANENTLY')
+            .map((place: any) => ({
+              name: place.name || 'Unknown',
+              address: place.vicinity || 'Address not available',
+              location: {
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+              },
+              phone: place.formatted_phone_number,
+              rating: place.rating,
+            }));
           console.log('Processed places:', places);
           resolve(places);
         } else {

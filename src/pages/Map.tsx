@@ -43,40 +43,56 @@ const Map = () => {
       console.log('Loading nearby places for location:', userLocation);
       setIsLoading(true);
       try {
-        // Find emergency shelters - use multiple place types
+        // Find emergency shelters - use multiple place types with better search terms
         console.log('Searching for shelters near:', userLocation);
-        const [shelterResults, governmentResults, churchResults] = await Promise.all([
-          findNearbyPlaces(userLocation, 'lodging', 15000),
-          findNearbyPlaces(userLocation, 'local_government_office', 15000),
-          findNearbyPlaces(userLocation, 'church', 10000)
+        const [
+          schoolResults,
+          governmentResults, 
+          churchResults,
+          communityResults
+        ] = await Promise.all([
+          findNearbyPlaces(userLocation, 'school', 25000),
+          findNearbyPlaces(userLocation, 'local_government_office', 20000),
+          findNearbyPlaces(userLocation, 'church', 15000),
+          findNearbyPlaces(userLocation, 'community_center', 15000)
         ]);
         
         // Combine and add distance calculation
-        const allShelters = [...shelterResults, ...governmentResults, ...churchResults]
-          .map(place => ({
-            ...place,
-            distance: mapsService.calculateDistance(userLocation, place.location)
-          }))
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, 8);
-
-        console.log('Found shelters:', allShelters);
-        setShelters(allShelters);
-
-        // Find medical facilities
-        console.log('Searching for medical facilities near:', userLocation);
-        const [hospitalResults, pharmacyResults] = await Promise.all([
-          findNearbyPlaces(userLocation, 'hospital', 20000),
-          findNearbyPlaces(userLocation, 'pharmacy', 10000)
-        ]);
-        
-        const medicalResults = [...hospitalResults, ...pharmacyResults]
+        const allShelters = [
+          ...schoolResults.slice(0, 3),
+          ...governmentResults.slice(0, 2),
+          ...churchResults.slice(0, 2),
+          ...communityResults.slice(0, 2)
+        ]
           .map(place => ({
             ...place,
             distance: mapsService.calculateDistance(userLocation, place.location)
           }))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 6);
+
+        console.log('Found potential shelters:', allShelters);
+        setShelters(allShelters);
+
+        // Find medical facilities with better coverage
+        console.log('Searching for medical facilities near:', userLocation);
+        const [hospitalResults, pharmacyResults, clinicResults] = await Promise.all([
+          findNearbyPlaces(userLocation, 'hospital', 50000),
+          findNearbyPlaces(userLocation, 'pharmacy', 25000),
+          findNearbyPlaces(userLocation, 'doctor', 30000)
+        ]);
+        
+        const medicalResults = [
+          ...hospitalResults.slice(0, 3),
+          ...pharmacyResults.slice(0, 2),
+          ...clinicResults.slice(0, 2)
+        ]
+          .map(place => ({
+            ...place,
+            distance: mapsService.calculateDistance(userLocation, place.location)
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 5);
 
         console.log('Found medical facilities:', medicalResults);
         setMedicalFacilities(medicalResults);
