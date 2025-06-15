@@ -62,19 +62,36 @@ const Map = () => {
       setIsLoading(true);
       
       try {
-        // Find emergency shelters with better search strategy
-        console.log('Searching for shelters near:', userLocation);
+        // Find actual emergency shelters using text search for better accuracy
+        console.log('Searching for emergency shelters near:', userLocation);
         const shelterSearches = await Promise.all([
-          findNearbyPlaces(userLocation, 'school', 20000),
-          findNearbyPlaces(userLocation, 'local_government_office', 15000),
-          findNearbyPlaces(userLocation, 'church', 12000)
+          // Search for actual emergency shelters and evacuation centers
+          mapsService.textSearch(userLocation, 'emergency shelter evacuation center', 25000),
+          mapsService.textSearch(userLocation, 'Red Cross shelter disaster relief', 20000),
+          mapsService.textSearch(userLocation, 'community center emergency shelter', 15000),
+          mapsService.textSearch(userLocation, 'YMCA emergency services', 15000),
+          // High schools often serve as emergency shelters
+          findNearbyPlaces(userLocation, 'secondary_school', 20000)
         ]);
         
         if (!isMounted) return;
         
-        // Combine and process results
+        // Combine and process results, prioritizing actual emergency facilities
         const allShelterResults = shelterSearches.flat();
         const processedShelters = allShelterResults
+          .filter(place => {
+            // Filter for more relevant emergency shelter keywords
+            const name = place.name.toLowerCase();
+            return name.includes('emergency') || 
+                   name.includes('shelter') || 
+                   name.includes('evacuation') || 
+                   name.includes('red cross') || 
+                   name.includes('disaster') || 
+                   name.includes('community center') || 
+                   name.includes('ymca') || 
+                   name.includes('high school') ||
+                   name.includes('civic center');
+          })
           .map(place => ({
             ...place,
             distance: mapsService.calculateDistance(userLocation, place.location)
@@ -82,7 +99,7 @@ const Map = () => {
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 6);
 
-        console.log('Processed shelters:', processedShelters);
+        console.log('Processed emergency shelters:', processedShelters);
         if (isMounted) {
           setShelters(processedShelters);
         }

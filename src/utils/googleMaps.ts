@@ -133,6 +133,47 @@ export class GoogleMapsService {
     });
   }
 
+  async textSearch(location: Location, query: string, radius: number = 10000): Promise<PlaceResult[]> {
+    console.log('Text search for:', { query, location, radius });
+    
+    // Create a temporary map for places service
+    const tempDiv = document.createElement('div');
+    const tempMap = new google.maps.Map(tempDiv, { center: location, zoom: 12 });
+    const placesService = new google.maps.places.PlacesService(tempMap);
+
+    return new Promise((resolve) => {
+      const request = {
+        query: query,
+        location: new google.maps.LatLng(location.lat, location.lng),
+        radius: radius,
+      };
+
+      placesService.textSearch(request, (results, status) => {
+        console.log('Text search results for', query, ':', { results, status });
+        
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          const places: PlaceResult[] = results
+            .filter((place: any) => place.business_status !== 'CLOSED_PERMANENTLY')
+            .map((place: any) => ({
+              name: place.name || 'Unknown',
+              address: place.formatted_address || place.vicinity || 'Address not available',
+              location: {
+                lat: place.geometry?.location?.lat() || 0,
+                lng: place.geometry?.location?.lng() || 0,
+              },
+              phone: place.formatted_phone_number,
+              rating: place.rating,
+            }));
+          console.log('Processed text search places:', places);
+          resolve(places);
+        } else {
+          console.error('Text search failed:', status);
+          resolve([]);
+        }
+      });
+    });
+  }
+
   calculateDistance(from: Location, to: Location): number {
     const R = 3959; // Earth's radius in miles
     const dLat = (to.lat - from.lat) * Math.PI / 180;
