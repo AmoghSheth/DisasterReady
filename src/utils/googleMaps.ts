@@ -1,5 +1,5 @@
 
-export const GOOGLE_MAPS_API_KEY = 'AIzaSyBtNkwIOuJ6GATeMJHdOtlfIPDKwWAEzvg';
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg';
 
 export interface Location {
   lat: number;

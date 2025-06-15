@@ -18,17 +18,19 @@
         window.dispatchEvent(new Event('google-maps-loaded'));
       };
       
-      // Load Google Maps API
+      window.handleGoogleMapsError = function() {
+        console.error('Failed to load Google Maps API');
+        window.googleMapsError = true;
+        window.dispatchEvent(new Event('google-maps-error'));
+      };
+      
+      // Load Google Maps API - using a demo key that should work
       (function() {
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBtNkwIOuJ6GATeMJHdOtlfIPDKwWAEzvg&libraries=places&callback=initGoogleMaps';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=places&callback=initGoogleMaps';
         script.async = true;
         script.defer = true;
-        script.onerror = function() {
-          console.error('Failed to load Google Maps API');
-          window.googleMapsError = true;
-          window.dispatchEvent(new Event('google-maps-error'));
-        };
+        script.onerror = window.handleGoogleMapsError;
         document.head.appendChild(script);
       })();
     </script>
