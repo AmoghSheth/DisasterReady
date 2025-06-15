@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Navigation, Phone, Hospital, Shield } from 'lucide-react';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+import { useLocation } from '@/contexts/LocationContext';
 import { Location, PlaceResult } from '@/utils/googleMaps';
 
 const Map = () => {
+  const { location } = useLocation();
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [shelters, setShelters] = useState<PlaceResult[]>([]);
   const [medicalFacilities, setMedicalFacilities] = useState<PlaceResult[]>([]);
@@ -18,28 +20,18 @@ const Map = () => {
   const { findNearbyPlaces, mapsService } = useGoogleMaps();
 
   useEffect(() => {
-    const loadUserLocation = () => {
-      console.log('Loading user location from localStorage...');
-      const savedLocation = localStorage.getItem('userLocation');
-      if (savedLocation) {
-        try {
-          const location = JSON.parse(savedLocation);
-          console.log('Found saved location:', location);
-          setUserLocation(location);
-        } catch (error) {
-          console.error('Error parsing saved location:', error);
-          // Default to Los Angeles if parsing fails
-          setUserLocation({ lat: 34.0522, lng: -118.2437 });
-        }
-      } else {
-        console.log('No saved location found, using default');
-        // Default to Los Angeles if no location saved
-        setUserLocation({ lat: 34.0522, lng: -118.2437 });
-      }
-    };
-
-    loadUserLocation();
-  }, []);
+    if (location.coords) {
+      const mapLocation = {
+        lat: location.coords.latitude,
+        lng: location.coords.longitude
+      };
+      console.log('Setting user location from context:', mapLocation);
+      setUserLocation(mapLocation);
+    } else {
+      console.log('No location in context, using default');
+      setUserLocation({ lat: 34.0522, lng: -118.2437 });
+    }
+  }, [location.coords]);
 
   useEffect(() => {
     const loadNearbyPlaces = async () => {
@@ -51,25 +43,40 @@ const Map = () => {
       console.log('Loading nearby places for location:', userLocation);
       setIsLoading(true);
       try {
-        // Find emergency shelters (using lodging and local_government_office as proxies)
-        const shelterResults = await findNearbyPlaces(userLocation, 'lodging', 8000);
-        const governmentResults = await findNearbyPlaces(userLocation, 'local_government_office', 8000);
+        // Find emergency shelters - use multiple place types
+        console.log('Searching for shelters near:', userLocation);
+        const [shelterResults, governmentResults, churchResults] = await Promise.all([
+          findNearbyPlaces(userLocation, 'lodging', 15000),
+          findNearbyPlaces(userLocation, 'local_government_office', 15000),
+          findNearbyPlaces(userLocation, 'church', 10000)
+        ]);
         
         // Combine and add distance calculation
-        const allShelters = [...shelterResults, ...governmentResults].map(place => ({
-          ...place,
-          distance: mapsService?.calculateDistance(userLocation, place.location) || 0
-        })).sort((a, b) => (a.distance || 0) - (b.distance || 0)).slice(0, 5);
+        const allShelters = [...shelterResults, ...governmentResults, ...churchResults]
+          .map(place => ({
+            ...place,
+            distance: mapsService.calculateDistance(userLocation, place.location)
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 8);
 
         console.log('Found shelters:', allShelters);
         setShelters(allShelters);
 
         // Find medical facilities
-        const hospitalResults = await findNearbyPlaces(userLocation, 'hospital', 10000);
-        const medicalResults = hospitalResults.map(place => ({
-          ...place,
-          distance: mapsService?.calculateDistance(userLocation, place.location) || 0
-        })).sort((a, b) => (a.distance || 0) - (b.distance || 0)).slice(0, 3);
+        console.log('Searching for medical facilities near:', userLocation);
+        const [hospitalResults, pharmacyResults] = await Promise.all([
+          findNearbyPlaces(userLocation, 'hospital', 20000),
+          findNearbyPlaces(userLocation, 'pharmacy', 10000)
+        ]);
+        
+        const medicalResults = [...hospitalResults, ...pharmacyResults]
+          .map(place => ({
+            ...place,
+            distance: mapsService.calculateDistance(userLocation, place.location)
+          }))
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 6);
 
         console.log('Found medical facilities:', medicalResults);
         setMedicalFacilities(medicalResults);
