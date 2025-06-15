@@ -15,7 +15,7 @@ const Map = () => {
   const [medicalFacilities, setMedicalFacilities] = useState<PlaceResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('shelters');
-  const { isLoaded, findNearbyPlaces, mapsService } = useGoogleMaps();
+  const { findNearbyPlaces, mapsService } = useGoogleMaps();
 
   useEffect(() => {
     const loadUserLocation = () => {
@@ -43,8 +43,8 @@ const Map = () => {
 
   useEffect(() => {
     const loadNearbyPlaces = async () => {
-      if (!userLocation || !isLoaded) {
-        console.log('Cannot load nearby places:', { userLocation, isLoaded });
+      if (!userLocation) {
+        console.log('Cannot load nearby places: no user location');
         return;
       }
 
@@ -81,7 +81,7 @@ const Map = () => {
     };
 
     loadNearbyPlaces();
-  }, [userLocation, isLoaded, findNearbyPlaces, mapsService]);
+  }, [userLocation, findNearbyPlaces, mapsService]);
 
   const handleGetDirections = (destination: Location) => {
     console.log('Getting directions to:', destination);
@@ -167,21 +167,15 @@ const Map = () => {
           
           {/* Google Map */}
           <div className="mb-4">
-            {!isLoaded ? (
-              <div className="h-64 bg-gray-200 rounded-xl flex items-center justify-center">
-                <p className="text-gray-500">Loading Google Maps...</p>
-              </div>
-            ) : (
-              <GoogleMap
-                center={userLocation}
-                zoom={12}
-                height="250px"
-                markers={getMapMarkers(activeTab)}
-                onMapReady={(map) => {
-                  console.log('Google Map is ready:', map);
-                }}
-              />
-            )}
+            <GoogleMap
+              center={userLocation}
+              zoom={12}
+              height="250px"
+              markers={getMapMarkers(activeTab)}
+              onMapReady={(map) => {
+                console.log('Google Map is ready:', map);
+              }}
+            />
           </div>
           
           <TabsContent value="shelters" className="mt-0">

@@ -13,14 +13,9 @@ const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
-  const { isLoaded, getCurrentLocation, geocodeZipCode, isLoadingLocation } = useGoogleMaps();
+  const { error, getCurrentLocation, geocodeZipCode } = useGoogleMaps();
 
   const handleUseGPS = async () => {
-    if (!isLoaded) {
-      toast.error("Maps service is still loading. Please try again.");
-      return;
-    }
-
     setIsProcessing(true);
     try {
       const location = await getCurrentLocation();
@@ -43,11 +38,6 @@ const LocationSetup = () => {
   const handleContinue = async () => {
     if (zipCode.length !== 5 || !/^\d+$/.test(zipCode)) {
       toast.error("Please enter a valid 5-digit ZIP code");
-      return;
-    }
-
-    if (!isLoaded) {
-      toast.error("Maps service is still loading. Please try again.");
       return;
     }
 
@@ -117,7 +107,7 @@ const LocationSetup = () => {
               value={zipCode}
               onChange={(e) => setZipCode(e.target.value.replace(/[^0-9]/g, ''))}
               className="w-full"
-              disabled={isProcessing || isLoadingLocation}
+              disabled={isProcessing}
             />
           </div>
           
@@ -135,10 +125,10 @@ const LocationSetup = () => {
           <button 
             onClick={handleUseGPS}
             className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors disabled:opacity-50"
-            disabled={isProcessing || isLoadingLocation || !isLoaded}
+            disabled={isProcessing}
           >
             <MapPin className="mr-2" size={18} />
-            {isProcessing || isLoadingLocation ? "Detecting Location..." : "Use Current Location"}
+            {isProcessing ? "Detecting Location..." : "Use Current Location"}
           </button>
           
           <div className="pt-4">
@@ -146,7 +136,7 @@ const LocationSetup = () => {
               onClick={handleContinue} 
               className="w-full"
               icon={<ArrowRight size={18} />}
-              disabled={isProcessing || isLoadingLocation}
+              disabled={isProcessing}
             >
               Continue
             </AnimatedButton>

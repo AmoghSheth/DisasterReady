@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { GoogleMapsService, Location } from '@/utils/googleMaps';
+import { Wrapper, Status } from '@googlemaps/react-wrapper';
+import { Location } from '@/utils/googleMaps';
 
 interface GoogleMapProps {
   center: Location;
@@ -14,6 +15,112 @@ interface GoogleMapProps {
   onMapReady?: (map: google.maps.Map) => void;
 }
 
+interface MapComponentProps {
+  center: Location;
+  zoom: number;
+  markers: Array<{
+    position: Location;
+    title?: string;
+    icon?: string;
+  }>;
+  onMapReady?: (map: google.maps.Map) => void;
+}
+
+const MapComponent = ({ center, zoom, markers, onMapReady }: MapComponentProps) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+
+  const clearMarkers = () => {
+    markersRef.current.forEach(marker => {
+      marker.setMap(null);
+    });
+    markersRef.current = [];
+  };
+
+  const addMarkers = () => {
+    if (!mapInstanceRef.current) return;
+    
+    clearMarkers();
+    
+    markers.forEach(markerData => {
+      if (mapInstanceRef.current) {
+        const marker = new google.maps.Marker({
+          position: markerData.position,
+          map: mapInstanceRef.current,
+          title: markerData.title,
+          icon: markerData.icon,
+        });
+        markersRef.current.push(marker);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (mapRef.current && !mapInstanceRef.current) {
+      const map = new google.maps.Map(mapRef.current, {
+        center,
+        zoom,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+      
+      mapInstanceRef.current = map;
+      onMapReady?.(map);
+    }
+  }, [center, zoom, onMapReady]);
+
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter(center);
+      mapInstanceRef.current.setZoom(zoom);
+    }
+  }, [center, zoom]);
+
+  useEffect(() => {
+    addMarkers();
+  }, [markers]);
+
+  useEffect(() => {
+    return () => {
+      clearMarkers();
+    };
+  }, []);
+
+  return <div ref={mapRef} style={{ width: '100%', height: '100%' }} />;
+};
+
+const render = (status: Status) => {
+  switch (status) {
+    case Status.LOADING:
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-gray-500 text-sm mt-2">Loading map...</p>
+          </div>
+        </div>
+      );
+    case Status.FAILURE:
+      return (
+        <div className="flex items-center justify-center h-full bg-red-50 border border-red-200">
+          <div className="text-center p-4">
+            <p className="text-red-600 text-sm">Error loading Google Maps</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    default:
+      return null;
+  }
+};
+
 const GoogleMap = ({ 
   center, 
   zoom = 12, 
@@ -21,183 +128,23 @@ const GoogleMap = ({
   markers = [],
   onMapReady 
 }: GoogleMapProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapDivRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const [isMapReady, setIsMapReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const initializingRef = useRef(false);
-
-  const clearMarkers = () => {
-    try {
-      markersRef.current.forEach(marker => {
-        try {
-          if (marker && typeof marker.setMap === 'function') {
-            marker.setMap(null);
-          }
-        } catch (e) {
-          // Ignore individual marker cleanup errors
-        }
-      });
-      markersRef.current = [];
-    } catch (error) {
-      console.warn('Error clearing markers:', error);
-      markersRef.current = [];
-    }
-  };
-
-  const createMapDiv = () => {
-    if (mapDivRef.current) {
-      return mapDivRef.current;
-    }
-    
-    const div = document.createElement('div');
-    div.style.width = '100%';
-    div.style.height = '100%';
-    div.style.position = 'relative';
-    mapDivRef.current = div;
-    return div;
-  };
-
-  const initializeMap = async () => {
-    if (!containerRef.current || initializingRef.current) {
-      return;
-    }
-
-    if (!window.google?.maps) {
-      console.log('Google Maps API not loaded yet');
-      return;
-    }
-
-    initializingRef.current = true;
-    
-    try {
-      setError(null);
-      setIsLoading(true);
-      
-      // Clear existing markers
-      clearMarkers();
-      
-      // Create a new div for the map that React won't manage
-      const mapDiv = createMapDiv();
-      
-      // Clear container and append map div
-      if (containerRef.current) {
-        containerRef.current.innerHTML = '';
-        containerRef.current.appendChild(mapDiv);
-      }
-      
-      // Create new map
-      const map = new google.maps.Map(mapDiv, {
-        center,
-        zoom,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
-
-      mapInstanceRef.current = map;
-      setIsMapReady(true);
-      setIsLoading(false);
-      console.log('Map initialization complete');
-      onMapReady?.(map);
-      
-    } catch (error) {
-      console.error('Error initializing map:', error);
-      setError('Failed to load map');
-      setIsLoading(false);
-    } finally {
-      initializingRef.current = false;
-    }
-  };
-
-  useEffect(() => {
-    const handleMapsLoaded = () => {
-      setTimeout(() => initializeMap(), 100);
-    };
-
-    if (window.google?.maps) {
-      initializeMap();
-    } else {
-      window.addEventListener('google-maps-loaded', handleMapsLoaded);
-      return () => window.removeEventListener('google-maps-loaded', handleMapsLoaded);
-    }
-  }, [center.lat, center.lng, zoom]);
-
-  // Update markers when they change
-  useEffect(() => {
-    if (!mapInstanceRef.current || !isMapReady) {
-      return;
-    }
-
-    console.log('Updating markers:', markers);
-    
-    clearMarkers();
-    
-    try {
-      markers.forEach(marker => {
-        if (mapInstanceRef.current) {
-          const googleMarker = new google.maps.Marker({
-            position: marker.position,
-            map: mapInstanceRef.current,
-            title: marker.title,
-            icon: marker.icon,
-          });
-          markersRef.current.push(googleMarker);
-        }
-      });
-    } catch (error) {
-      console.warn('Error adding markers:', error);
-    }
-  }, [markers, isMapReady]);
-
-  // Cleanup function that doesn't interfere with React
-  useEffect(() => {
-    return () => {
-      clearMarkers();
-      mapInstanceRef.current = null;
-      mapDivRef.current = null;
-    };
-  }, []);
-
-  if (error) {
-    return (
-      <div 
-        style={{ width: '100%', height }}
-        className="rounded-xl overflow-hidden bg-red-50 flex items-center justify-center border border-red-200"
-      >
-        <div className="text-center p-4">
-          <p className="text-red-600 text-sm">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div 
       style={{ width: '100%', height }}
       className="rounded-xl overflow-hidden bg-gray-200 relative"
     >
-      <div 
-        ref={containerRef}
-        style={{ width: '100%', height: '100%' }}
-      />
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-500 text-sm mt-2">Loading map...</p>
-          </div>
-        </div>
-      )}
+      <Wrapper
+        apiKey="AIzaSyAOVYRIgupAurZup5y1PRh8Isb1ZNsNlSo"
+        libraries={['places']}
+        render={render}
+      >
+        <MapComponent
+          center={center}
+          zoom={zoom}
+          markers={markers}
+          onMapReady={onMapReady}
+        />
+      </Wrapper>
     </div>
   );
 };
