@@ -7,17 +7,31 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut, Plus, Edit2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '@/contexts/LocationContext';
 
 const Profile = () => {
-  const [darkMode, setDarkMode] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [language, setLanguage] = useState('english');
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('darkMode') === 'true';
+  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('notifications') !== 'false';
+  });
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem('language') || 'english';
+  });
   const [locationName, setLocationName] = useState('Your Location');
+  const [emergencyContacts, setEmergencyContacts] = useState([
+    { id: 1, name: 'Jane Smith', relation: 'Spouse', phone: '(555) 123-4567' },
+    { id: 2, name: 'Robert Doe', relation: 'Parent', phone: '(555) 987-6543' }
+  ]);
+  const [editingContact, setEditingContact] = useState(null);
+  const [contactForm, setContactForm] = useState({ name: '', relation: '', phone: '' });
+  const [isAddingContact, setIsAddingContact] = useState(false);
   const navigate = useNavigate();
   const { location } = useLocation();
 
@@ -33,6 +47,24 @@ const Profile = () => {
     };
     loadLocationName();
   }, [location]);
+
+  // Load emergency contacts from localStorage
+  useEffect(() => {
+    const savedContacts = localStorage.getItem('emergencyContacts');
+    if (savedContacts) {
+      setEmergencyContacts(JSON.parse(savedContacts));
+    }
+  }, []);
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', darkMode.toString());
+  }, [darkMode]);
   
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked);
@@ -41,12 +73,65 @@ const Profile = () => {
   
   const handleNotificationsToggle = (checked: boolean) => {
     setNotificationsEnabled(checked);
+    localStorage.setItem('notifications', checked.toString());
     toast.success(`Notifications ${checked ? 'enabled' : 'disabled'}`);
   };
   
   const handleLanguageChange = (value: string) => {
     setLanguage(value);
+    localStorage.setItem('language', value);
     toast.success(`Language changed to ${value.charAt(0).toUpperCase() + value.slice(1)}`);
+  };
+
+  const handleAddContact = () => {
+    if (!contactForm.name || !contactForm.relation || !contactForm.phone) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    const newContact = {
+      id: Date.now(),
+      name: contactForm.name,
+      relation: contactForm.relation,
+      phone: contactForm.phone
+    };
+    
+    const updatedContacts = [...emergencyContacts, newContact];
+    setEmergencyContacts(updatedContacts);
+    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
+    setContactForm({ name: '', relation: '', phone: '' });
+    setIsAddingContact(false);
+    toast.success('Emergency contact added successfully');
+  };
+
+  const handleEditContact = (contact) => {
+    setEditingContact(contact);
+    setContactForm({ name: contact.name, relation: contact.relation, phone: contact.phone });
+  };
+
+  const handleUpdateContact = () => {
+    if (!contactForm.name || !contactForm.relation || !contactForm.phone) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    const updatedContacts = emergencyContacts.map(contact =>
+      contact.id === editingContact.id
+        ? { ...contact, name: contactForm.name, relation: contactForm.relation, phone: contactForm.phone }
+        : contact
+    );
+    
+    setEmergencyContacts(updatedContacts);
+    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
+    setEditingContact(null);
+    setContactForm({ name: '', relation: '', phone: '' });
+    toast.success('Emergency contact updated successfully');
+  };
+
+  const resetContactForm = () => {
+    setContactForm({ name: '', relation: '', phone: '' });
+    setEditingContact(null);
+    setIsAddingContact(false);
   };
   
   const handleLogout = () => {
@@ -147,22 +232,119 @@ const Profile = () => {
           </h2>
           
           <div className="space-y-3">
-            {[
-              { name: 'Jane Smith', relation: 'Spouse', phone: '(555) 123-4567' },
-              { name: 'Robert Doe', relation: 'Parent', phone: '(555) 987-6543' }
-            ].map((contact, index) => (
-              <div key={index} className="flex justify-between items-center py-2">
+            {emergencyContacts.map((contact) => (
+              <div key={contact.id} className="flex justify-between items-center py-2">
                 <div>
                   <p className="font-medium">{contact.name}</p>
                   <p className="text-sm text-gray-600">{contact.relation} • {contact.phone}</p>
                 </div>
-                <Button variant="ghost" size="sm">Edit</Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleEditContact(contact)}
+                    >
+                      <Edit2 size={14} className="mr-1" />
+                      Edit
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Edit Emergency Contact</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="edit-name">Name</Label>
+                        <Input
+                          id="edit-name"
+                          value={contactForm.name}
+                          onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Contact name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-relation">Relationship</Label>
+                        <Input
+                          id="edit-relation"
+                          value={contactForm.relation}
+                          onChange={(e) => setContactForm(prev => ({ ...prev, relation: e.target.value }))}
+                          placeholder="e.g., Spouse, Parent, Friend"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-phone">Phone Number</Label>
+                        <Input
+                          id="edit-phone"
+                          value={contactForm.phone}
+                          onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleUpdateContact} className="flex-1">
+                          Update Contact
+                        </Button>
+                        <Button variant="outline" onClick={resetContactForm} className="flex-1">
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             ))}
             
-            <Button variant="outline" size="sm" className="w-full">
-              Add Emergency Contact
-            </Button>
+            <Dialog open={isAddingContact} onOpenChange={setIsAddingContact}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Plus size={14} className="mr-1" />
+                  Add Emergency Contact
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Emergency Contact</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="add-name">Name</Label>
+                    <Input
+                      id="add-name"
+                      value={contactForm.name}
+                      onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Contact name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="add-relation">Relationship</Label>
+                    <Input
+                      id="add-relation"
+                      value={contactForm.relation}
+                      onChange={(e) => setContactForm(prev => ({ ...prev, relation: e.target.value }))}
+                      placeholder="e.g., Spouse, Parent, Friend"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="add-phone">Phone Number</Label>
+                    <Input
+                      id="add-phone"
+                      value={contactForm.phone}
+                      onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddContact} className="flex-1">
+                      Add Contact
+                    </Button>
+                    <Button variant="outline" onClick={resetContactForm} className="flex-1">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </motion.div>
         
