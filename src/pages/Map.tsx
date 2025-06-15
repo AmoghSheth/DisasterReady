@@ -62,42 +62,75 @@ const Map = () => {
       setIsLoading(true);
       
       try {
-        // Find actual emergency shelters using text search for better accuracy
+        // Find actual emergency shelters using comprehensive search
         console.log('Searching for emergency shelters near:', userLocation);
         const shelterSearches = await Promise.all([
-          // Search for actual emergency shelters and evacuation centers
-          mapsService.textSearch(userLocation, 'emergency shelter evacuation center', 25000),
-          mapsService.textSearch(userLocation, 'Red Cross shelter disaster relief', 20000),
-          mapsService.textSearch(userLocation, 'community center emergency shelter', 15000),
-          mapsService.textSearch(userLocation, 'YMCA emergency services', 15000),
-          // High schools often serve as emergency shelters
-          findNearbyPlaces(userLocation, 'secondary_school', 20000)
+          // Search for official emergency shelters and relief centers
+          mapsService.textSearch(userLocation, 'emergency shelter', 30000),
+          mapsService.textSearch(userLocation, 'disaster relief center', 25000),
+          mapsService.textSearch(userLocation, 'evacuation center', 25000),
+          mapsService.textSearch(userLocation, 'Red Cross shelter', 20000),
+          mapsService.textSearch(userLocation, 'salvation army shelter', 20000),
+          mapsService.textSearch(userLocation, 'homeless shelter emergency services', 15000),
+          mapsService.textSearch(userLocation, 'community emergency shelter', 15000),
+          // Community centers that may serve as shelters
+          findNearbyPlaces(userLocation, 'community_center', 12000),
+          // Only include a few high schools as backup
+          findNearbyPlaces(userLocation, 'secondary_school', 15000)
         ]);
         
         if (!isMounted) return;
         
-        // Combine and process results, prioritizing actual emergency facilities
+        // Combine and process results, prioritizing actual shelters
         const allShelterResults = shelterSearches.flat();
         const processedShelters = allShelterResults
           .filter(place => {
-            // Filter for more relevant emergency shelter keywords
             const name = place.name.toLowerCase();
-            return name.includes('emergency') || 
-                   name.includes('shelter') || 
-                   name.includes('evacuation') || 
-                   name.includes('red cross') || 
-                   name.includes('disaster') || 
-                   name.includes('community center') || 
-                   name.includes('ymca') || 
-                   name.includes('high school') ||
-                   name.includes('civic center');
+            const address = place.address.toLowerCase();
+            
+            // Prioritize actual shelters and emergency facilities
+            const isActualShelter = name.includes('shelter') || 
+                                   name.includes('emergency') || 
+                                   name.includes('evacuation') || 
+                                   name.includes('red cross') || 
+                                   name.includes('salvation army') || 
+                                   name.includes('disaster relief') ||
+                                   name.includes('crisis') ||
+                                   address.includes('shelter') ||
+                                   address.includes('emergency');
+            
+            const isCommunityCenter = name.includes('community center') || 
+                                     name.includes('civic center') ||
+                                     name.includes('ymca') ||
+                                     name.includes('recreation center');
+            
+            const isSchool = name.includes('high school') || 
+                           name.includes('school') ||
+                           name.includes('academy');
+            
+            // Return actual shelters first, then community centers, limit schools
+            return isActualShelter || isCommunityCenter || (isSchool && Math.random() > 0.7);
           })
-          .map(place => ({
-            ...place,
-            distance: mapsService.calculateDistance(userLocation, place.location)
-          }))
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, 6);
+          .map(place => {
+            const name = place.name.toLowerCase();
+            // Give priority score to actual shelters
+            let priority = 0;
+            if (name.includes('shelter') || name.includes('emergency') || name.includes('evacuation')) priority = 1;
+            else if (name.includes('community center') || name.includes('civic center')) priority = 2;
+            else if (name.includes('school')) priority = 3;
+            
+            return {
+              ...place,
+              distance: mapsService.calculateDistance(userLocation, place.location),
+              priority
+            };
+          })
+          .sort((a, b) => {
+            // Sort by priority first, then by distance
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return a.distance - b.distance;
+          })
+          .slice(0, 8);
 
         console.log('Processed emergency shelters:', processedShelters);
         if (isMounted) {
