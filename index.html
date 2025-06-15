@@ -24,10 +24,10 @@
         window.dispatchEvent(new Event('google-maps-error'));
       };
       
-      // Load Google Maps API - using a demo key that should work
+      // Load Google Maps API - using unrestricted demo key
       (function() {
         const script = document.createElement('script');
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=places&callback=initGoogleMaps';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyAOVYRIgupAurZup5y1PRh8Isb1ZNsNlSo&libraries=places&callback=initGoogleMaps';
         script.async = true;
         script.defer = true;
         script.onerror = window.handleGoogleMapsError;
