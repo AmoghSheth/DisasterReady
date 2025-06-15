@@ -32,6 +32,12 @@ const Profile = () => {
   const [editingContact, setEditingContact] = useState(null);
   const [contactForm, setContactForm] = useState({ name: '', relation: '', phone: '' });
   const [isAddingContact, setIsAddingContact] = useState(false);
+  const [userProfile, setUserProfile] = useState(() => {
+    const saved = localStorage.getItem('userProfile');
+    return saved ? JSON.parse(saved) : { name: 'John Doe', email: 'john.doe@example.com' };
+  });
+  const [profileForm, setProfileForm] = useState(userProfile);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const navigate = useNavigate();
   const { location } = useLocation();
 
@@ -133,6 +139,28 @@ const Profile = () => {
     setEditingContact(null);
     setIsAddingContact(false);
   };
+
+  const handleEditProfile = () => {
+    setProfileForm(userProfile);
+    setIsEditingProfile(true);
+  };
+
+  const handleUpdateProfile = () => {
+    if (!profileForm.name || !profileForm.email) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    setUserProfile(profileForm);
+    localStorage.setItem('userProfile', JSON.stringify(profileForm));
+    setIsEditingProfile(false);
+    toast.success('Profile updated successfully');
+  };
+
+  const resetProfileForm = () => {
+    setProfileForm(userProfile);
+    setIsEditingProfile(false);
+  };
   
   const handleLogout = () => {
     toast.info("This would log you out in a real app");
@@ -163,11 +191,53 @@ const Profile = () => {
             <User size={30} className="text-gray-600" />
           </div>
           <div>
-            <h2 className="font-semibold text-lg">John Doe</h2>
-            <p className="text-sm text-gray-600">john.doe@example.com</p>
-            <Button variant="link" className="p-0 h-auto text-sm text-disaster-blue">
-              Edit Profile
-            </Button>
+            <h2 className="font-semibold text-lg">{userProfile.name}</h2>
+            <p className="text-sm text-gray-600">{userProfile.email}</p>
+            <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="link" 
+                  className="p-0 h-auto text-sm text-disaster-blue"
+                  onClick={handleEditProfile}
+                >
+                  Edit Profile
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Profile</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="profile-name">Full Name</Label>
+                    <Input
+                      id="profile-name"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Your full name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profile-email">Email Address</Label>
+                    <Input
+                      id="profile-email"
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="your.email@example.com"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleUpdateProfile} className="flex-1">
+                      Update Profile
+                    </Button>
+                    <Button variant="outline" onClick={resetProfileForm} className="flex-1">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </motion.div>
         
