@@ -23,23 +23,41 @@ const GoogleMap = ({
 }: GoogleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const mapsService = useRef<GoogleMapsService | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [isMapReady, setIsMapReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const initializingRef = useRef(false);
 
   const clearMarkers = () => {
     try {
-      markersRef.current.forEach(marker => {
-        if (marker && marker.getMap()) {
-          marker.setMap(null);
-        }
-      });
-      markersRef.current = [];
+      if (markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => {
+          try {
+            if (marker && typeof marker.setMap === 'function') {
+              marker.setMap(null);
+            }
+          } catch (e) {
+            // Ignore individual marker cleanup errors
+          }
+        });
+        markersRef.current = [];
+      }
     } catch (error) {
       console.warn('Error clearing markers:', error);
       markersRef.current = [];
+    }
+  };
+
+  const cleanupMap = () => {
+    try {
+      clearMarkers();
+      if (mapInstanceRef.current) {
+        // Don't try to destroy the map, just clear the reference
+        mapInstanceRef.current = null;
+      }
+    } catch (error) {
+      console.warn('Error during map cleanup:', error);
     }
   };
 
@@ -47,8 +65,7 @@ const GoogleMap = ({
     let isMounted = true;
 
     const initializeMap = async () => {
-      if (!mapRef.current) {
-        console.log('Map ref not available');
+      if (!mapRef.current || !isMounted || initializingRef.current) {
         return;
       }
 
@@ -57,15 +74,16 @@ const GoogleMap = ({
         return;
       }
 
-      if (!isMounted) return;
-
-      console.log('Initializing Google Map with center:', center);
+      initializingRef.current = true;
       
       try {
         setError(null);
         setIsLoading(true);
         
-        // Create map directly instead of using service for initialization
+        // Clear any existing map
+        cleanupMap();
+        
+        // Create new map
         const map = new google.maps.Map(mapRef.current, {
           center,
           zoom,
@@ -74,10 +92,8 @@ const GoogleMap = ({
           fullscreenControl: false,
         });
 
-        mapInstanceRef.current = map;
-        mapsService.current = GoogleMapsService.getInstance();
-        
         if (isMounted) {
+          mapInstanceRef.current = map;
           setIsMapReady(true);
           setIsLoading(false);
           console.log('Map initialization complete');
@@ -89,36 +105,44 @@ const GoogleMap = ({
           setError('Failed to load map');
           setIsLoading(false);
         }
+      } finally {
+        initializingRef.current = false;
       }
     };
 
-    const checkAndInit = () => {
-      if (window.google?.maps) {
-        initializeMap();
-      } else {
-        const handleMapsLoaded = () => {
-          initializeMap();
-        };
-        window.addEventListener('google-maps-loaded', handleMapsLoaded);
-        return () => window.removeEventListener('google-maps-loaded', handleMapsLoaded);
+    const handleMapsLoaded = () => {
+      if (isMounted) {
+        setTimeout(() => initializeMap(), 100);
       }
     };
 
-    checkAndInit();
+    if (window.google?.maps) {
+      initializeMap();
+    } else {
+      window.addEventListener('google-maps-loaded', handleMapsLoaded);
+    }
 
     return () => {
       isMounted = false;
-      clearMarkers();
+      window.removeEventListener('google-maps-loaded', handleMapsLoaded);
+      // Don't cleanup map in unmount to avoid DOM conflicts
+      // Just clear references
+      markersRef.current = [];
+      mapInstanceRef.current = null;
     };
-  }, [center, zoom, onMapReady]);
+  }, [center.lat, center.lng, zoom]);
 
   // Update markers when they change
   useEffect(() => {
-    if (mapInstanceRef.current && isMapReady) {
-      console.log('Updating markers:', markers);
-      
-      clearMarkers();
-      
+    if (!mapInstanceRef.current || !isMapReady) {
+      return;
+    }
+
+    console.log('Updating markers:', markers);
+    
+    clearMarkers();
+    
+    try {
       markers.forEach(marker => {
         if (mapInstanceRef.current) {
           const googleMarker = new google.maps.Marker({
@@ -130,6 +154,8 @@ const GoogleMap = ({
           markersRef.current.push(googleMarker);
         }
       });
+    } catch (error) {
+      console.warn('Error adding markers:', error);
     }
   }, [markers, isMapReady]);
 
