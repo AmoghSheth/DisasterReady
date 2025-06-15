@@ -21,7 +21,8 @@ const GoogleMap = ({
   markers = [],
   onMapReady 
 }: GoogleMapProps) => {
-  const mapRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -31,105 +32,98 @@ const GoogleMap = ({
 
   const clearMarkers = () => {
     try {
-      if (markersRef.current.length > 0) {
-        markersRef.current.forEach(marker => {
-          try {
-            if (marker && typeof marker.setMap === 'function') {
-              marker.setMap(null);
-            }
-          } catch (e) {
-            // Ignore individual marker cleanup errors
+      markersRef.current.forEach(marker => {
+        try {
+          if (marker && typeof marker.setMap === 'function') {
+            marker.setMap(null);
           }
-        });
-        markersRef.current = [];
-      }
+        } catch (e) {
+          // Ignore individual marker cleanup errors
+        }
+      });
+      markersRef.current = [];
     } catch (error) {
       console.warn('Error clearing markers:', error);
       markersRef.current = [];
     }
   };
 
-  const cleanupMap = () => {
+  const createMapDiv = () => {
+    if (mapDivRef.current) {
+      return mapDivRef.current;
+    }
+    
+    const div = document.createElement('div');
+    div.style.width = '100%';
+    div.style.height = '100%';
+    div.style.position = 'relative';
+    mapDivRef.current = div;
+    return div;
+  };
+
+  const initializeMap = async () => {
+    if (!containerRef.current || initializingRef.current) {
+      return;
+    }
+
+    if (!window.google?.maps) {
+      console.log('Google Maps API not loaded yet');
+      return;
+    }
+
+    initializingRef.current = true;
+    
     try {
+      setError(null);
+      setIsLoading(true);
+      
+      // Clear existing markers
       clearMarkers();
-      if (mapInstanceRef.current) {
-        // Don't try to destroy the map, just clear the reference
-        mapInstanceRef.current = null;
+      
+      // Create a new div for the map that React won't manage
+      const mapDiv = createMapDiv();
+      
+      // Clear container and append map div
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+        containerRef.current.appendChild(mapDiv);
       }
+      
+      // Create new map
+      const map = new google.maps.Map(mapDiv, {
+        center,
+        zoom,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+
+      mapInstanceRef.current = map;
+      setIsMapReady(true);
+      setIsLoading(false);
+      console.log('Map initialization complete');
+      onMapReady?.(map);
+      
     } catch (error) {
-      console.warn('Error during map cleanup:', error);
+      console.error('Error initializing map:', error);
+      setError('Failed to load map');
+      setIsLoading(false);
+    } finally {
+      initializingRef.current = false;
     }
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const initializeMap = async () => {
-      if (!mapRef.current || !isMounted || initializingRef.current) {
-        return;
-      }
-
-      if (!window.google?.maps) {
-        console.log('Google Maps API not loaded yet');
-        return;
-      }
-
-      initializingRef.current = true;
-      
-      try {
-        setError(null);
-        setIsLoading(true);
-        
-        // Clear any existing map
-        cleanupMap();
-        
-        // Create new map
-        const map = new google.maps.Map(mapRef.current, {
-          center,
-          zoom,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false,
-        });
-
-        if (isMounted) {
-          mapInstanceRef.current = map;
-          setIsMapReady(true);
-          setIsLoading(false);
-          console.log('Map initialization complete');
-          onMapReady?.(map);
-        }
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        if (isMounted) {
-          setError('Failed to load map');
-          setIsLoading(false);
-        }
-      } finally {
-        initializingRef.current = false;
-      }
-    };
-
     const handleMapsLoaded = () => {
-      if (isMounted) {
-        setTimeout(() => initializeMap(), 100);
-      }
+      setTimeout(() => initializeMap(), 100);
     };
 
     if (window.google?.maps) {
       initializeMap();
     } else {
       window.addEventListener('google-maps-loaded', handleMapsLoaded);
+      return () => window.removeEventListener('google-maps-loaded', handleMapsLoaded);
     }
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener('google-maps-loaded', handleMapsLoaded);
-      // Don't cleanup map in unmount to avoid DOM conflicts
-      // Just clear references
-      markersRef.current = [];
-      mapInstanceRef.current = null;
-    };
   }, [center.lat, center.lng, zoom]);
 
   // Update markers when they change
@@ -159,6 +153,15 @@ const GoogleMap = ({
     }
   }, [markers, isMapReady]);
 
+  // Cleanup function that doesn't interfere with React
+  useEffect(() => {
+    return () => {
+      clearMarkers();
+      mapInstanceRef.current = null;
+      mapDivRef.current = null;
+    };
+  }, []);
+
   if (error) {
     return (
       <div 
@@ -180,10 +183,13 @@ const GoogleMap = ({
 
   return (
     <div 
-      ref={mapRef}
       style={{ width: '100%', height }}
       className="rounded-xl overflow-hidden bg-gray-200 relative"
     >
+      <div 
+        ref={containerRef}
+        style={{ width: '100%', height: '100%' }}
+      />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
           <div className="text-center">
