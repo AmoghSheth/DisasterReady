@@ -134,7 +134,7 @@ const GoogleMap = ({
       className="rounded-xl overflow-hidden bg-gray-200 relative"
     >
       <Wrapper
-        apiKey="AIzaSyAOVYRIgupAurZup5y1PRh8Isb1ZNsNlSo"
+        apiKey="AIzaSyCOUApwzid4BeHZb3AE_sy8KILH0e0xkco"
         libraries={['places']}
         render={render}
       >
