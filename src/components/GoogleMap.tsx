@@ -30,8 +30,17 @@ const GoogleMap = ({
   const [isLoading, setIsLoading] = useState(true);
 
   const clearMarkers = () => {
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
+    try {
+      markersRef.current.forEach(marker => {
+        if (marker && marker.getMap()) {
+          marker.setMap(null);
+        }
+      });
+      markersRef.current = [];
+    } catch (error) {
+      console.warn('Error clearing markers:', error);
+      markersRef.current = [];
+    }
   };
 
   useEffect(() => {
