@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import GradientBackground from '@/components/GradientBackground';
@@ -6,22 +5,24 @@ import AnimatedButton from '@/components/AnimatedButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Dog, Cat, Check } from 'lucide-react';
+import { Dog, Cat, Check, Users, Heart, Pill } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
+import { useHousehold } from '@/contexts/HouseholdContext';
 
 const HouseholdSetup = () => {
   const [householdSize, setHouseholdSize] = useState('');
   const [medicalNeeds, setMedicalNeeds] = useState<string[]>([]);
   const [pets, setPets] = useState<string[]>([]);
   const navigate = useNavigate();
+  const { updateHousehold } = useHousehold();
 
   const medicalNeedOptions = [
-    { id: 'medications', label: 'Medications' },
-    { id: 'devices', label: 'Assistive Devices' },
-    { id: 'mobility', label: 'Mobility Needs' },
-    { id: 'oxygen', label: 'Oxygen' },
-    { id: 'allergies', label: 'Severe Allergies' },
+    { id: 'medications', label: 'Medications', icon: <Pill className="w-4 h-4" /> },
+    { id: 'devices', label: 'Assistive Devices', icon: <Heart className="w-4 h-4" /> },
+    { id: 'mobility', label: 'Mobility Needs', icon: <Heart className="w-4 h-4" /> },
+    { id: 'oxygen', label: 'Oxygen', icon: <Heart className="w-4 h-4" /> },
+    { id: 'allergies', label: 'Severe Allergies', icon: <Heart className="w-4 h-4" /> },
   ];
 
   const toggleMedicalNeed = (need: string) => {
@@ -46,7 +47,12 @@ const HouseholdSetup = () => {
       return;
     }
     
-    // In a real app, we would save this data to a state manager or server
+    updateHousehold({
+      size: parseInt(householdSize),
+      pets,
+      medicalNeeds
+    });
+    
     toast.success("Setup complete!");
     navigate('/dashboard');
   };
@@ -85,11 +91,12 @@ const HouseholdSetup = () => {
         >
           {/* Household Size */}
           <div className="space-y-3">
-            <label htmlFor="household-size" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="household-size" className="block text-sm font-medium text-gray-700 flex items-center">
+              <Users className="w-4 h-4 mr-2" />
               Household Size
             </label>
             <Select value={householdSize} onValueChange={setHouseholdSize}>
-              <SelectTrigger id="household-size">
+              <SelectTrigger id="household-size" className="w-full">
                 <SelectValue placeholder="Select number of people" />
               </SelectTrigger>
               <SelectContent>
@@ -107,13 +114,13 @@ const HouseholdSetup = () => {
             <label className="block text-sm font-medium text-gray-700">
               Do you have pets?
             </label>
-            <div className="flex space-x-4">
+            <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => togglePet('dog')}
-                className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                className={`p-4 rounded-lg flex items-center justify-center transition-all ${
                   pets.includes('dog') 
-                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300' 
-                    : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
+                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 shadow-sm' 
+                    : 'bg-gray-50 text-gray-700 border-2 border-gray-200 hover:bg-gray-100'
                 }`}
               >
                 <Dog className="mr-2" size={20} />
@@ -122,10 +129,10 @@ const HouseholdSetup = () => {
               
               <button
                 onClick={() => togglePet('cat')}
-                className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                className={`p-4 rounded-lg flex items-center justify-center transition-all ${
                   pets.includes('cat') 
-                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300' 
-                    : 'bg-gray-100 text-gray-700 border-2 border-gray-200'
+                    ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 shadow-sm' 
+                    : 'bg-gray-50 text-gray-700 border-2 border-gray-200 hover:bg-gray-100'
                 }`}
               >
                 <Cat className="mr-2" size={20} />
@@ -139,16 +146,30 @@ const HouseholdSetup = () => {
             <label className="block text-sm font-medium text-gray-700">
               Medical Needs (select all that apply)
             </label>
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2">
               {medicalNeedOptions.map((need) => (
-                <div key={need.id} className="flex items-center">
+                <div 
+                  key={need.id} 
+                  className={`flex items-center p-3 rounded-lg transition-all ${
+                    medicalNeeds.includes(need.id)
+                      ? 'bg-blue-50 border-2 border-blue-200'
+                      : 'bg-gray-50 border-2 border-gray-200'
+                  }`}
+                >
                   <Checkbox
                     id={need.id}
                     checked={medicalNeeds.includes(need.id)}
                     onCheckedChange={() => toggleMedicalNeed(need.id)}
+                    className="mr-3"
                   />
-                  <Label htmlFor={need.id} className="ml-2 cursor-pointer">
-                    {need.label}
+                  <Label 
+                    htmlFor={need.id} 
+                    className={`flex items-center cursor-pointer ${
+                      medicalNeeds.includes(need.id) ? 'text-blue-700' : 'text-gray-700'
+                    }`}
+                  >
+                    {need.icon}
+                    <span className="ml-2">{need.label}</span>
                   </Label>
                 </div>
               ))}

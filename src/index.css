@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,7 +5,7 @@
 @layer base {
   :root {
     /* Main color scheme */
-    --background: 210 40% 98%;
+    --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -20,11 +19,11 @@
     --primary-foreground: 210 40% 98%;
 
     /* Secondary: #34C759 */
-    --secondary: 142 70% 49%;
+    --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
     /* Alert: #FF3B30 */
-    --destructive: 5 100% 59%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
@@ -39,13 +38,13 @@
 
     --radius: 1rem;
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 211 100% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -96,6 +95,7 @@
   
   html, body {
     @apply font-inter antialiased;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -107,15 +107,34 @@
   }
   
   h1 {
-    @apply text-3xl md:text-4xl;
+    @apply text-2xl sm:text-3xl md:text-4xl;
   }
   
   h2 {
-    @apply text-2xl md:text-3xl;
+    @apply text-xl sm:text-2xl md:text-3xl;
   }
   
   h3 {
-    @apply text-xl md:text-2xl;
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+
+  /* Improve touch targets */
+  button, 
+  [role="button"],
+  a {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Improve form elements */
+  input,
+  select,
+  textarea {
+    @apply text-base;
+  }
+
+  /* Improve scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -125,7 +144,7 @@
   }
   
   .gradient-button {
-    @apply bg-gradient-to-r from-disaster-blue to-disaster-green text-white font-semibold py-3 px-6 rounded-full shadow-md hover:shadow-lg transition-shadow duration-300;
+    @apply bg-gradient-to-r from-disaster-blue to-disaster-green text-white font-semibold py-2.5 sm:py-3 px-4 sm:px-6 rounded-full shadow-md hover:shadow-lg transition-shadow duration-300;
   }
   
   .card-effect {
@@ -133,7 +152,7 @@
   }
   
   .alert-card {
-    @apply relative overflow-hidden bg-white rounded-xl shadow-md p-4 border-l-4;
+    @apply relative overflow-hidden bg-white rounded-xl shadow-md border-l-4;
   }
   
   .risk-low {
@@ -146,5 +165,20 @@
   
   .risk-high {
     @apply border-risk-red;
+  }
+
+  /* Mobile-specific styles */
+  @media (max-width: 640px) {
+    .mobile-padding {
+      @apply px-4;
+    }
+
+    .mobile-text {
+      @apply text-sm;
+    }
+
+    .mobile-heading {
+      @apply text-lg;
+    }
   }
 }
