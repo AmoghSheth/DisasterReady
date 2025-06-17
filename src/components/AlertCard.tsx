@@ -2,87 +2,92 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, CloudLightning, CloudRain, Tornado } from 'lucide-react';
 import { format } from 'date-fns';
-import { motion } from "framer-motion";
-import { Flame, Wind } from "lucide-react";
 
 type AlertSeverity = 'low' | 'medium' | 'high';
 type AlertType = 'storm' | 'earthquake' | 'wildfire' | 'flood' | 'general';
 
 interface AlertCardProps {
-  id: string;
   title: string;
   description: string;
   timestamp: Date;
   severity: AlertSeverity;
   type: AlertType;
+  className?: string;
 }
 
-const getIcon = (type: AlertType) => {
-  switch (type) {
-    case 'storm':
-      return <CloudLightning className="text-yellow-500" size={18} />;
-    case 'flood':
-      return <Flame className="text-orange-500" size={18} />;
-    case 'wildfire':
-      return <Flame className="text-red-500" size={18} />;
-    default:
-      return <AlertTriangle className="text-blue-500" size={18} />;
-  }
-};
-
-const getSeverityColor = (severity: AlertCardProps["severity"]) => {
-  switch (severity) {
-    case 'high':
-      return 'border-risk-high bg-red-50';
-    case 'medium':
-      return 'border-risk-medium bg-yellow-50';
-    default:
-      return 'border-risk-low bg-green-50';
-  }
-};
-
 const AlertCard = ({ 
-  id,
   title, 
   description, 
   timestamp, 
   severity, 
   type,
+  className 
 }: AlertCardProps) => {
+  const getBorderColor = () => {
+    switch (severity) {
+      case 'low':
+        return 'border-green-500';
+      case 'medium':
+        return 'border-yellow-500';
+      case 'high':
+        return 'border-red-500';
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'storm':
+        return <CloudLightning className="h-6 w-6 text-blue-500" />;
+      case 'earthquake':
+        return <Tornado className="h-6 w-6 text-orange-500" />;
+      case 'wildfire':
+        return <AlertTriangle className="h-6 w-6 text-red-500" />;
+      case 'flood':
+        return <CloudRain className="h-6 w-6 text-blue-500" />;
+      default:
+        return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
+    }
+  };
+
+  const getSeverityBadge = () => {
+    const colors = {
+      low: 'bg-green-100 text-green-800',
+      medium: 'bg-yellow-100 text-yellow-800',
+      high: 'bg-red-100 text-red-800'
+    };
+    
+    return (
+      <span className={cn(
+        'px-2 py-1 text-xs font-medium rounded',
+        colors[severity]
+      )}>
+        {severity.charAt(0).toUpperCase() + severity.slice(1)}
+      </span>
+    );
+  };
+
   return (
-    <motion.div
-      className={`alert-card ${getSeverityColor(severity)} p-3 sm:p-4`}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex items-start gap-3">
-        <div className="mt-0.5">{getIcon(type)}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-medium text-sm sm:text-base text-gray-900 truncate">{title}</h3>
-            <span className="text-xs text-gray-500 whitespace-nowrap">
-              {format(timestamp, "MMM d, h:mm a")}
-            </span>
+    <div className={cn(
+      'bg-white rounded-xl shadow-md p-4 border-l-4 mb-4',
+      getBorderColor(),
+      className
+    )}>
+      <div className="flex items-start">
+        <div className="mr-3">
+          {getIcon()}
+        </div>
+        <div className="flex-1">
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="font-semibold">{title}</h3>
+            {getSeverityBadge()}
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{description}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              severity === "high" 
-                ? "bg-red-100 text-red-700" 
-                : severity === "medium"
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-green-100 text-green-700"
-            }`}>
-              {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
-            </span>
-            <span className="text-xs text-gray-500">
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </span>
-          </div>
+          <p className="text-sm text-gray-600 mb-2">{description}</p>
+          <p className="text-xs text-gray-500">
+            {format(timestamp, 'MMM d, yyyy • h:mm a')}
+          </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

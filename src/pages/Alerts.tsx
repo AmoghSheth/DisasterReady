@@ -96,55 +96,51 @@ const Alerts = () => {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <motion.div 
-        className="bg-white px-4 sm:px-5 py-3 sm:py-4 shadow-sm"
+        className="bg-white px-5 py-4 shadow-sm"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="text-xl sm:text-2xl font-bold">Alerts</h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Live & historical alerts for your area</p>
+        <h1 className="text-2xl font-bold">Alerts</h1>
+        <p className="text-sm text-gray-500 mt-1">Live & historical alerts for your area</p>
       </motion.div>
-      
       {/* Search & Filters */}
-      <div className="px-4 sm:px-5 py-4">
-        <div className="flex flex-col sm:flex-row gap-2 mb-4">
+      <div className="px-5 py-4">
+        <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <Input
               placeholder="Search alerts..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm"
+              className="pl-10"
             />
           </div>
-          <div className="flex gap-2">
-            <select
-              className="border rounded px-2 py-1.5 text-sm text-gray-700 flex-1"
-              value={filterType}
-              onChange={e => setFilterType(e.target.value)}
-            >
-              <option value="all">All Types</option>
-              <option value="flood">Flood</option>
-              <option value="wildfire">Wildfire</option>
-              <option value="storm">Storm</option>
-              <option value="general">General</option>
-            </select>
-            <select
-              className="border rounded px-2 py-1.5 text-sm text-gray-700 flex-1"
-              value={filterSeverity}
-              onChange={e => setFilterSeverity(e.target.value)}
-            >
-              <option value="all">All Severity</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
+          <select
+            className="border rounded px-2 py-1 text-sm text-gray-700"
+            value={filterType}
+            onChange={e => setFilterType(e.target.value)}
+          >
+            <option value="all">All Types</option>
+            <option value="flood">Flood</option>
+            <option value="wildfire">Wildfire</option>
+            <option value="storm">Storm</option>
+            <option value="general">General</option>
+          </select>
+          <select
+            className="border rounded px-2 py-1 text-sm text-gray-700"
+            value={filterSeverity}
+            onChange={e => setFilterSeverity(e.target.value)}
+          >
+            <option value="all">All Severity</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
         </div>
-        
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full mb-4">
-            <TabsTrigger value="all" className="flex-1 text-sm">All Alerts</TabsTrigger>
+            <TabsTrigger value="all" className="flex-1">All Alerts</TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-0">
             <motion.div
@@ -152,15 +148,13 @@ const Alerts = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <h2 className="text-xs sm:text-sm font-medium text-gray-500 mb-3">ALERT HISTORY</h2>
-              <div className="space-y-3">
-                {filteredAlerts.map(alert => (
-                  <AlertCard key={alert.id} {...alert} />
-                ))}
-                {filteredAlerts.length === 0 && (
-                  <p className="text-center text-gray-500 py-8 text-sm">No alerts match your search or filters</p>
-                )}
-              </div>
+              <h2 className="text-sm font-medium text-gray-500 mb-3">ALERT HISTORY</h2>
+              {filteredAlerts.map(alert => (
+                <AlertCard key={alert.id} {...alert} />
+              ))}
+              {filteredAlerts.length === 0 && (
+                <p className="text-center text-gray-500 py-8">No alerts match your search or filters</p>
+              )}
             </motion.div>
           </TabsContent>
         </Tabs>
