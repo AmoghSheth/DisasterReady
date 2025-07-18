@@ -5,7 +5,7 @@ import PreparednessPlanCard from '@/components/PreparednessPlanCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Download, AlertTriangle, Info, CloudLightning, Flame, Droplet, Wind } from 'lucide-react';
+import { Download, AlertTriangle, Info, CloudLightning, Flame } from 'lucide-react';
 import { useHousehold } from '@/contexts/HouseholdContext';
 import { toast } from 'sonner';
 import { getWeatherByZip, getFemaDisastersByState } from '@/utils/externalData';
@@ -21,7 +21,6 @@ interface Plan {
   [key: string]: PlanItem[];
 }
 
-// Base plans that will be customized based on household info
 const basePlans: Plan = {
   earthquake: [
     { id: 'eq1', title: 'Secure heavy furniture to walls', baseQuantity: 1 },
@@ -29,28 +28,24 @@ const basePlans: Plan = {
     { id: 'eq3', title: 'Prepare emergency kit with food and water', baseQuantity: 1 },
     { id: 'eq4', title: 'Learn how to shut off gas and water', baseQuantity: 1 },
     { id: 'eq5', title: 'Practice drop, cover, and hold drills', baseQuantity: 1 },
-    { id: 'eq6', title: 'Have emergency contact plan', baseQuantity: 1 }
   ],
   flood: [
     { id: 'fl1', title: 'Know your property\'s flood risk level', baseQuantity: 1 },
     { id: 'fl2', title: 'Prepare sandbags or barriers', baseQuantity: 10 },
     { id: 'fl3', title: 'Create evacuation plan with multiple routes', baseQuantity: 1 },
     { id: 'fl4', title: 'Move valuables to higher floors', baseQuantity: 1 },
-    { id: 'fl5', title: 'Get flood insurance', baseQuantity: 1 }
   ],
   wildfire: [
     { id: 'wf1', title: 'Create defensible space around home', baseQuantity: 1 },
     { id: 'wf2', title: 'Use fire-resistant materials', baseQuantity: 1 },
     { id: 'wf3', title: 'Prepare go-bag with essentials', baseQuantity: 1 },
     { id: 'wf4', title: 'Plan multiple evacuation routes', baseQuantity: 1 },
-    { id: 'wf5', title: 'Install smoke alarms', baseQuantity: 3 }
   ],
   hurricane: [
     { id: 'hu1', title: 'Know evacuation zone and routes', baseQuantity: 1 },
     { id: 'hu2', title: 'Install storm shutters', baseQuantity: 1 },
     { id: 'hu3', title: 'Trim trees and branches near home', baseQuantity: 1 },
     { id: 'hu4', title: 'Secure outdoor items before storm', baseQuantity: 1 },
-    { id: 'hu5', title: 'Stock up on non-perishable food', baseQuantity: 7 }
   ]
 };
 
@@ -62,8 +57,7 @@ const Plan = () => {
   const [activeTab, setActiveTab] = useState('earthquake');
   
   useEffect(() => {
-    // Fetch weather and FEMA alerts for the user's ZIP code
-    const fetchAlerts = async () => {
+    const fetchAlertsAndData = async () => {
       const zip = localStorage.getItem('userZipCode');
       if (!zip) return;
       try {
@@ -73,19 +67,28 @@ const Plan = () => {
           const fema = await getFemaDisastersByState(weatherData.geo.state);
           setFemaDisasters(fema);
         }
+
+        // Dynamic Notifications
+        if (weatherData.alerts && weatherData.alerts.length > 0) {
+          const highSeverityAlert = weatherData.alerts.find(a => a.severity?.toLowerCase() === 'high' || a.event.includes('Warning'));
+          if (highSeverityAlert) {
+            toast.warning(`High Alert: ${highSeverityAlert.event}`, {
+              description: "Check your preparedness plan for recommended actions.",
+              duration: 8000,
+            });
+          }
+        }
       } catch (e) {
         setWeatherAlerts([]);
         setFemaDisasters([]);
       }
     };
-    fetchAlerts();
+    fetchAlertsAndData();
   }, []);
   
-  // Customize plans based on household information
   useEffect(() => {
     const customizedPlans = { ...basePlans };
     
-    // Adjust quantities based on household size
     Object.keys(customizedPlans).forEach(disasterType => {
       customizedPlans[disasterType] = customizedPlans[disasterType].map(item => ({
         ...item,
@@ -93,31 +96,17 @@ const Plan = () => {
       }));
     });
     
-    // Add pet-specific items if needed
-    if (household.pets.includes('dog')) {
-      customizedPlans.earthquake.push({
-        id: 'eq7',
-        title: 'Prepare pet emergency kit for dog',
-        baseQuantity: 1,
-        quantity: 1
-      });
-    }
-    if (household.pets.includes('cat')) {
-      customizedPlans.earthquake.push({
-        id: 'eq8',
-        title: 'Prepare pet emergency kit for cat',
-        baseQuantity: 1,
-        quantity: 1
+    if (household.pets.length > 0) {
+      const petKit = { id: 'petkit', title: `Prepare emergency kit for ${household.pets.join(', ')}`, baseQuantity: 1, quantity: 1 };
+      Object.keys(customizedPlans).forEach(disasterType => {
+        customizedPlans[disasterType].push(petKit);
       });
     }
     
-    // Add medical needs specific items
-    if (household.medicalNeeds.includes('medications')) {
-      customizedPlans.earthquake.push({
-        id: 'eq9',
-        title: 'Prepare 7-day supply of medications',
-        baseQuantity: 1,
-        quantity: 1
+    if (household.medicalNeeds.length > 0) {
+      const medicalKit = { id: 'medkit', title: 'Prepare 7-day supply of essential medications', baseQuantity: 1, quantity: 1 };
+      Object.keys(customizedPlans).forEach(disasterType => {
+        customizedPlans[disasterType].push(medicalKit);
       });
     }
     
@@ -145,16 +134,24 @@ const Plan = () => {
     return (completedItems / totalItems) * 100;
   };
 
-  // Highlight checklist items if relevant to current weather/disaster
-  const getHighlightedItems = (disasterType: string) => {
-    let highlightIds: string[] = [];
-    // Example: highlight flood items if flood warning, etc.
-    if (weatherAlerts.some(a => /flood/i.test(a.event))) highlightIds.push('fl2', 'fl3', 'fl4', 'fl5');
-    if (weatherAlerts.some(a => /storm|tornado|hurricane/i.test(a.event))) highlightIds.push('hu1', 'hu2', 'hu4', 'hu5');
-    if (weatherAlerts.some(a => /fire|wildfire/i.test(a.event))) highlightIds.push('wf1', 'wf2', 'wf3', 'wf4', 'wf5');
-    if (weatherAlerts.some(a => /earthquake/i.test(a.event))) highlightIds.push('eq1', 'eq2', 'eq5', 'eq6');
+  const getHighlightedItems = () => {
+    const highlightIds: string[] = [];
+    if (weatherAlerts.some(a => /flood/i.test(a.event))) {
+      highlightIds.push('fl2', 'fl3', 'fl4');
+    }
+    if (weatherAlerts.some(a => /storm|tornado|hurricane/i.test(a.event))) {
+      highlightIds.push('hu1', 'hu2', 'hu4');
+    }
+    if (weatherAlerts.some(a => /fire|wildfire/i.test(a.event))) {
+      highlightIds.push('wf1', 'wf3', 'wf4');
+    }
+    if (weatherAlerts.some(a => /earthquake/i.test(a.event))) {
+      highlightIds.push('eq2', 'eq5');
+    }
     return highlightIds;
   };
+
+  const highlightedItems = getHighlightedItems();
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -169,7 +166,6 @@ const Plan = () => {
         <p className="text-sm text-gray-500 mt-1">Tailored steps to stay disaster-ready</p>
       </motion.div>
       
-      {/* Alerts Section */}
       {(weatherAlerts.length > 0 || femaDisasters.length > 0) && (
         <motion.div
           className="mx-5 my-4 p-4 bg-gradient-to-br from-yellow-50 to-red-50 border-l-4 border-red-400 rounded-xl shadow flex flex-col gap-3"
@@ -187,7 +183,6 @@ const Plan = () => {
               <div>
                 <div className="font-medium text-gray-800">{alert.event}</div>
                 <div className="text-xs text-gray-600">{alert.description}</div>
-                <div className="text-xs text-gray-400 mt-1">From: {new Date(alert.start * 1000).toLocaleString()} To: {new Date(alert.end * 1000).toLocaleString()}</div>
               </div>
             </div>
           ))}
@@ -196,15 +191,12 @@ const Plan = () => {
               <Flame className="text-orange-500 mt-1" />
               <div>
                 <div className="font-medium text-gray-800">{dis.incidentType} ({dis.declarationTitle})</div>
-                <div className="text-xs text-gray-600">{dis.declarationDate?.slice(0,10)} - {dis.state}</div>
-                <div className="text-xs text-gray-400">{dis.declarationSummary || dis.title}</div>
               </div>
             </div>
           ))}
         </motion.div>
       )}
       
-      {/* Tabs */}
       <div className="px-5 py-4">
         <Tabs defaultValue="earthquake" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="w-full mb-4 grid grid-cols-4">
@@ -221,7 +213,6 @@ const Plan = () => {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
               >
-                {/* Progress Bar */}
                 <div className="mb-6">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium">Your Progress</span>
@@ -232,7 +223,6 @@ const Plan = () => {
                   <Progress value={calculateProgress(disasterType)} className="h-2" />
                 </div>
                 
-                {/* Checklist */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-medium text-gray-500">RECOMMENDED ACTIONS</h2>
@@ -245,17 +235,13 @@ const Plan = () => {
                       isCompleted={household.supplies[item.id]?.completed || false}
                       onClick={() => toggleItemCompletion(disasterType, item.id)}
                       quantity={item.quantity}
-                      highlight={getHighlightedItems(disasterType).includes(item.id)}
+                      highlight={highlightedItems.includes(item.id)}
                     />
                   ))}
                 </div>
                 
-                {/* Supply List */}
                 <div className="bg-white rounded-xl shadow-sm p-5 mt-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="font-medium">Recommended Supply List</h2>
-                    <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                  </div>
+                  <h2 className="font-medium mb-2">Downloadable Supply List</h2>
                   <p className="text-sm text-gray-600 mb-4">
                     Based on your household size ({household.size} people) and needs.
                   </p>

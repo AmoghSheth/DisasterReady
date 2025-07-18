@@ -16,7 +16,7 @@ const BottomNavigation = () => {
   ];
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2 px-4 z-10">
+    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 px-4 z-10 dark:bg-dark-card dark:border-dark-border">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
@@ -24,16 +24,16 @@ const BottomNavigation = () => {
             key={item.path}
             to={item.path} 
             className={cn(
-              'flex flex-col items-center pt-2 pb-1 px-3 rounded-lg',
+              'flex flex-col items-center pt-2 pb-1 px-3 rounded-lg transition-colors',
               isActive 
-                ? 'text-disaster-blue' 
-                : 'text-gray-500 hover:text-disaster-blue'
+                ? 'text-primary dark:text-dark-primary' 
+                : 'text-gray-500 hover:text-primary dark:text-dark-foreground-muted dark:hover:text-dark-primary'
             )}
           >
             <item.icon size={20} />
             <span className="text-xs mt-1">{item.text}</span>
             {isActive && (
-              <div className="h-1 w-8 bg-disaster-blue rounded-full mt-1" />
+              <div className="h-1 w-8 bg-primary dark:bg-dark-primary rounded-full mt-1" />
             )}
           </Link>
         );
