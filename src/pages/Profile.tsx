@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut, Plus, Edit2 } from 'lucide-react';
+import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
 import { useLocation } from '@/contexts/LocationContext';
+import { useHousehold } from '@/contexts/HouseholdContext';
 
 const Profile = () => {
   const [darkMode, setDarkMode] = useState(() => {
@@ -38,8 +39,11 @@ const Profile = () => {
   });
   const [profileForm, setProfileForm] = useState(userProfile);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingHousehold, setIsEditingHousehold] = useState(false);
+  const [householdForm, setHouseholdForm] = useState({ size: 1, pets: '', medicalNeeds: '' });
   const navigate = useNavigate();
   const { location } = useLocation();
+  const { household, updateHousehold } = useHousehold();
 
   useEffect(() => {
     const loadLocationName = () => {
@@ -61,6 +65,15 @@ const Profile = () => {
       setEmergencyContacts(JSON.parse(savedContacts));
     }
   }, []);
+
+  // Initialize household form with current household data
+  useEffect(() => {
+    setHouseholdForm({
+      size: household.size,
+      pets: household.pets.join(', '),
+      medicalNeeds: household.medicalNeeds.join(', ')
+    });
+  }, [household]);
 
   // Apply dark mode to document
   useEffect(() => {
@@ -161,6 +174,48 @@ const Profile = () => {
     setProfileForm(userProfile);
     setIsEditingProfile(false);
   };
+
+  const handleEditHousehold = () => {
+    setHouseholdForm({
+      size: household.size,
+      pets: household.pets.join(', '),
+      medicalNeeds: household.medicalNeeds.join(', ')
+    });
+    setIsEditingHousehold(true);
+  };
+
+  const handleUpdateHousehold = () => {
+    if (householdForm.size < 1) {
+      toast.error('Household size must be at least 1');
+      return;
+    }
+    
+    const updatedHousehold = {
+      size: householdForm.size,
+      pets: householdForm.pets.split(',').map(pet => pet.trim()).filter(pet => pet),
+      medicalNeeds: householdForm.medicalNeeds.split(',').map(need => need.trim()).filter(need => need)
+    };
+    
+    updateHousehold(updatedHousehold);
+    setIsEditingHousehold(false);
+    toast.success('Household information updated successfully');
+  };
+
+  const resetHouseholdForm = () => {
+    setHouseholdForm({
+      size: household.size,
+      pets: household.pets.join(', '),
+      medicalNeeds: household.medicalNeeds.join(', ')
+    });
+    setIsEditingHousehold(false);
+  };
+
+  const handleDeleteContact = (contactId: number) => {
+    const updatedContacts = emergencyContacts.filter(contact => contact.id !== contactId);
+    setEmergencyContacts(updatedContacts);
+    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
+    toast.success('Emergency contact deleted successfully');
+  };
   
   const handleLogout = () => {
     toast.info("This would log you out in a real app");
@@ -258,7 +313,12 @@ const Profile = () => {
                 <Label htmlFor="household-size" className="text-sm text-gray-600">
                   Household Size
                 </Label>
-                <Input id="household-size" value="3" readOnly className="bg-gray-50" />
+                <Input 
+                  id="household-size" 
+                  value={household.size} 
+                  readOnly 
+                  className="bg-gray-50" 
+                />
               </div>
               <div>
                 <Label htmlFor="location" className="text-sm text-gray-600">
@@ -281,12 +341,77 @@ const Profile = () => {
               <Label htmlFor="pets" className="text-sm text-gray-600">
                 Pets
               </Label>
-              <Input id="pets" value="Dog, Cat" readOnly className="bg-gray-50" />
+              <Input 
+                id="pets" 
+                value={household.pets.length > 0 ? household.pets.join(', ') : 'None'} 
+                readOnly 
+                className="bg-gray-50" 
+              />
             </div>
             
-            <Button variant="outline" size="sm">
-              Update Household Info
-            </Button>
+            <div>
+              <Label htmlFor="medical-needs" className="text-sm text-gray-600">
+                Medical Needs
+              </Label>
+              <Input 
+                id="medical-needs" 
+                value={household.medicalNeeds.length > 0 ? household.medicalNeeds.join(', ') : 'None'} 
+                readOnly 
+                className="bg-gray-50" 
+              />
+            </div>
+            
+            <Dialog open={isEditingHousehold} onOpenChange={setIsEditingHousehold}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleEditHousehold}>
+                  Update Household Info
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Update Household Information</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-household-size">Household Size</Label>
+                    <Input
+                      id="edit-household-size"
+                      type="number"
+                      min="1"
+                      value={householdForm.size}
+                      onChange={(e) => setHouseholdForm(prev => ({ ...prev, size: parseInt(e.target.value) || 1 }))}
+                      placeholder="Number of people in household"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-pets">Pets (comma separated)</Label>
+                    <Input
+                      id="edit-pets"
+                      value={householdForm.pets}
+                      onChange={(e) => setHouseholdForm(prev => ({ ...prev, pets: e.target.value }))}
+                      placeholder="e.g., Dog, Cat, Bird"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-medical-needs">Medical Needs (comma separated)</Label>
+                    <Input
+                      id="edit-medical-needs"
+                      value={householdForm.medicalNeeds}
+                      onChange={(e) => setHouseholdForm(prev => ({ ...prev, medicalNeeds: e.target.value }))}
+                      placeholder="e.g., Diabetes medication, Wheelchair access"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleUpdateHousehold} className="flex-1">
+                      Update Household
+                    </Button>
+                    <Button variant="outline" onClick={resetHouseholdForm} className="flex-1">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </motion.div>
         
@@ -308,60 +433,70 @@ const Profile = () => {
                   <p className="font-medium">{contact.name}</p>
                   <p className="text-sm text-gray-600">{contact.relation} • {contact.phone}</p>
                 </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleEditContact(contact)}
-                    >
-                      <Edit2 size={14} className="mr-1" />
-                      Edit
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Edit Emergency Contact</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="edit-name">Name</Label>
-                        <Input
-                          id="edit-name"
-                          value={contactForm.name}
-                          onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder="Contact name"
-                        />
+                <div className="flex gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditContact(contact)}
+                      >
+                        <Edit2 size={14} className="mr-1" />
+                        Edit
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Edit Emergency Contact</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="edit-name">Name</Label>
+                          <Input
+                            id="edit-name"
+                            value={contactForm.name}
+                            onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Contact name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-relation">Relationship</Label>
+                          <Input
+                            id="edit-relation"
+                            value={contactForm.relation}
+                            onChange={(e) => setContactForm(prev => ({ ...prev, relation: e.target.value }))}
+                            placeholder="e.g., Spouse, Parent, Friend"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="edit-phone">Phone Number</Label>
+                          <Input
+                            id="edit-phone"
+                            value={contactForm.phone}
+                            onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                            placeholder="(555) 123-4567"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={handleUpdateContact} className="flex-1">
+                            Update Contact
+                          </Button>
+                          <Button variant="outline" onClick={resetContactForm} className="flex-1">
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="edit-relation">Relationship</Label>
-                        <Input
-                          id="edit-relation"
-                          value={contactForm.relation}
-                          onChange={(e) => setContactForm(prev => ({ ...prev, relation: e.target.value }))}
-                          placeholder="e.g., Spouse, Parent, Friend"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-phone">Phone Number</Label>
-                        <Input
-                          id="edit-phone"
-                          value={contactForm.phone}
-                          onChange={(e) => setContactForm(prev => ({ ...prev, phone: e.target.value }))}
-                          placeholder="(555) 123-4567"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={handleUpdateContact} className="flex-1">
-                          Update Contact
-                        </Button>
-                        <Button variant="outline" onClick={resetContactForm} className="flex-1">
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => handleDeleteContact(contact.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
               </div>
             ))}
             

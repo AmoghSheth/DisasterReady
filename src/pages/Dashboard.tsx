@@ -14,6 +14,8 @@ import { getWeatherByZip, getFemaDisastersByState, getAIAssessment } from '@/uti
 import { Card } from '@/components/ui/card';
 import { Cloud, AlertTriangle, Flame } from 'lucide-react';
 import RiskAssessmentCard from '@/components/RiskAssessmentCard';
+import { useNotifications } from '@/contexts/NotificationContext';
+import NotificationPanel from '@/components/NotificationPanel';
 
 const getRiskFromForecast = (forecast) => {
   if (!forecast || !Array.isArray(forecast)) return [];
@@ -39,7 +41,9 @@ const Dashboard = () => {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [femaDisasters, setFemaDisasters] = useState<any[]>([]);
   const [riskAssessment, setRiskAssessment] = useState<any>(null);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const navigate = useNavigate();
+  const { unreadCount, addNotification } = useNotifications();
   
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -64,12 +68,37 @@ const Dashboard = () => {
               setForecast(weatherData.forecast);
               setAlerts(weatherData.alerts);
 
+              // Add notifications for weather alerts
+              if (weatherData.alerts && weatherData.alerts.length > 0) {
+                weatherData.alerts.forEach((alert: any) => {
+                  const severity = alert.severity?.toLowerCase();
+                  addNotification({
+                    title: alert.event || 'Weather Alert',
+                    message: alert.description || 'Check local conditions',
+                    type: severity === 'high' ? 'error' : severity === 'medium' ? 'warning' : 'info',
+                    source: 'National Weather Service'
+                  });
+                });
+              }
+
               const assessment = await getAIAssessment(weatherData);
               setRiskAssessment(assessment);
 
               if (weatherData.geo && weatherData.geo.state) {
                 const fema = await getFemaDisastersByState(weatherData.geo.state);
                 setFemaDisasters(fema);
+                
+                // Add notifications for FEMA disasters
+                if (fema && fema.length > 0) {
+                  fema.forEach((disaster: any) => {
+                    addNotification({
+                      title: `FEMA Disaster: ${disaster.incidentType}`,
+                      message: disaster.declarationTitle || 'Federal disaster declaration in your area',
+                      type: 'warning',
+                      source: 'FEMA'
+                    });
+                  });
+                }
               }
             } catch (err) {
               // Handle errors gracefully
@@ -88,6 +117,29 @@ const Dashboard = () => {
     loadUserLocation();
   }, []);
 
+  // Add some sample notifications for demonstration
+  useEffect(() => {
+    const hasAddedSampleNotifications = localStorage.getItem('sampleNotificationsAdded');
+    if (!hasAddedSampleNotifications) {
+      // Add sample notifications
+      addNotification({
+        title: 'Welcome to DisasterReady!',
+        message: 'Your emergency preparedness app is now set up and ready to help keep you safe.',
+        type: 'success',
+        source: 'System'
+      });
+      
+      addNotification({
+        title: 'Profile Setup Reminder',
+        message: 'Complete your household information and emergency contacts for better preparedness recommendations.',
+        type: 'info',
+        source: 'System'
+      });
+      
+      localStorage.setItem('sampleNotificationsAdded', 'true');
+    }
+  }, [addNotification]);
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -98,13 +150,22 @@ const Dashboard = () => {
       >
         <div>
           <Logo size="sm" />
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-2">
             {format(currentTime, 'EEEE, MMMM d • h:mm a')}
           </p>
         </div>
-        <Button variant="ghost" size="sm" className="relative">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="relative"
+          onClick={() => setIsNotificationPanelOpen(true)}
+        >
           <Bell size={20} />
-          <span className="absolute top-0 right-0 h-2 w-2 bg-destructive rounded-full"></span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 w-5 bg-destructive rounded-full flex items-center justify-center text-xs text-white font-medium">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
         </Button>
       </motion.div>
       
@@ -207,6 +268,11 @@ const Dashboard = () => {
       </div>
       
       <BottomNavigation />
+      
+      <NotificationPanel 
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+      />
     </div>
   );
 };

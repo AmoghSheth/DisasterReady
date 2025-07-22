@@ -5,7 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LocationProvider from "./contexts/LocationContext";
 import { HouseholdProvider } from "./contexts/HouseholdContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import Welcome from "./pages/Welcome";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
 import LocationSetup from "./pages/LocationSetup";
 import HouseholdSetup from "./pages/HouseholdSetup";
 import Dashboard from "./pages/Dashboard";
@@ -23,11 +26,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <LocationProvider>
-        <HouseholdProvider>
-        <BrowserRouter>
-          <Routes>
+      <NotificationProvider>
+        <LocationProvider>
+          <HouseholdProvider>
+          <BrowserRouter>
+                      <Routes>
             <Route path="/" element={<Welcome />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/location-setup" element={<LocationSetup />} />
             <Route path="/household-setup" element={<HouseholdSetup />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -38,9 +44,10 @@ const App = () => (
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-        </HouseholdProvider>
-      </LocationProvider>
+          </BrowserRouter>
+          </HouseholdProvider>
+        </LocationProvider>
+      </NotificationProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
