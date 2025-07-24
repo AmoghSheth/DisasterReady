@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 export interface Notification {
   id: string;
@@ -54,7 +54,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -63,27 +63,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
     
     setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep only last 50 notifications
-  };
+  }, []);
 
-  const markAsRead = (id: string) => {
+  const markAsRead = useCallback((id: string) => {
     setNotifications(prev => 
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     );
-  };
+  }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(prev => 
       prev.map(n => ({ ...n, read: true }))
     );
-  };
+  }, []);
 
-  const clearNotification = (id: string) => {
+  const clearNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+  }, []);
 
-  const clearAllNotifications = () => {
+  const clearAllNotifications = useCallback(() => {
     setNotifications([]);
-  };
+  }, []);
 
   return (
     <NotificationContext.Provider value={{

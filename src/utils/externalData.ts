@@ -5,6 +5,38 @@ const OPENWEATHERMAP_API_KEY = import.meta.env.VITE_OPENWEATHERMAP_API_KEY;
 const OPENWEATHERMAP_BASE = 'https://api.openweathermap.org/data/2.5';
 const FEMA_BASE = 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
 
+export async function getWeatherByLocation(location: { lat: number; lng: number }) {
+  if (!OPENWEATHERMAP_API_KEY || OPENWEATHERMAP_API_KEY === 'YOUR_OPENWEATHERMAP_API_KEY_HERE') {
+    console.error("FATAL: OpenWeatherMap API key is missing or is a placeholder. Please add your key to the .env file and restart the server.");
+    throw new Error('Missing OpenWeatherMap API Key');
+  }
+
+  const { lat, lng } = location;
+
+  // Fetch reverse geocoding data to get state for FEMA
+  const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lng}&limit=1&appid=${OPENWEATHERMAP_API_KEY}`);
+  if (!geoRes.ok) throw new Error('Failed to get location for coordinates');
+  const geoData = await geoRes.json();
+  const geo = geoData[0] || {};
+
+  const weatherRes = await fetch(`${OPENWEATHERMAP_BASE}/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHERMAP_API_KEY}&units=imperial`);
+  if (!weatherRes.ok) throw new Error('Failed to fetch current weather');
+  const weather = await weatherRes.json();
+
+  const forecastRes = await fetch(`${OPENWEATHERMAP_BASE}/forecast?lat=${lat}&lon=${lng}&appid=${OPENWEATHERMAP_API_KEY}&units=imperial`);
+  if (!forecastRes.ok) throw new Error('Failed to fetch forecast');
+  const forecastData = await forecastRes.json();
+
+  const alerts = await getNwsAlertsByLatLon(lat, lng);
+
+  return {
+    geo,
+    weather,
+    forecast: forecastData.list || [],
+    alerts: alerts || []
+  };
+}
+
 export async function getWeatherByZip(zip: string) {
   if (!OPENWEATHERMAP_API_KEY || OPENWEATHERMAP_API_KEY === 'YOUR_OPENWEATHERMAP_API_KEY_HERE') {
     console.error("FATAL: OpenWeatherMap API key is missing or is a placeholder. Please add your key to the .env file and restart the server.");
@@ -16,20 +48,7 @@ export async function getWeatherByZip(zip: string) {
   const geo = await geoRes.json();
   const { lat, lon } = geo;
 
-  const weatherRes = await fetch(`${OPENWEATHERMAP_BASE}/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}&units=imperial`);
-  if (!weatherRes.ok) throw new Error('Failed to fetch current weather');
-  const weather = await weatherRes.json();
-
-  const forecastRes = await fetch(`${OPENWEATHERMAP_BASE}/forecast?lat=${lat}&lon=${lon}&appid=${OPENWEATHERMAP_API_KEY}&units=imperial`);
-  if (!forecastRes.ok) throw new Error('Failed to fetch forecast');
-  const forecastData = await forecastRes.json();
-
-  return {
-    geo,
-    weather,
-    forecast: forecastData.list || [],
-    alerts: [] 
-  };
+  return getWeatherByLocation({ lat, lng: lon });
 }
 
 export async function getFemaDisastersByState(state: string) {

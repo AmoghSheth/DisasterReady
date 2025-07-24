@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { ArrowRight, ArrowLeft, Mail, Lock } from 'lucide-react';
 import GradientBackground from '@/components/GradientBackground';
 import Logo from '@/components/Logo';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +19,17 @@ const Login = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { session, profile, loading } = useAuth();
+
+  useEffect(() => {
+    console.log('[Login Page] Auth state change:', { session, profile, loading });
+    if (session && profile) {
+      console.log('[Login Page] Session and profile found, navigating to dashboard.');
+      navigate('/dashboard');
+    } else {
+      console.log('[Login Page] Waiting for session and/or profile.');
+    }
+  }, [session, profile, loading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

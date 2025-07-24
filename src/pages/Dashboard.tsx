@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import BottomNavigation from '@/components/BottomNavigation';
 import GoogleMap from '@/components/GoogleMap';
-import { Bell, MapPin, ArrowRight } from 'lucide-react';
+import { Bell, MapPin, ArrowRight, Cloud, AlertTriangle, Flame } from 'lucide-react';
 import AlertCard from '@/components/AlertCard';
 import { format } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
-import { Location } from '@/utils/googleMaps';
-import { getWeatherByZip, getFemaDisastersByState, getAIAssessment } from '@/utils/externalData';
-import { Card } from '@/components/ui/card';
-import { Cloud, AlertTriangle, Flame } from 'lucide-react';
+import { getWeatherByLocation, getFemaDisastersByState, getAIAssessment } from '@/utils/externalData';
+import { Card, CardContent } from '@/components/ui/card';
 import RiskAssessmentCard from '@/components/RiskAssessmentCard';
 import { useNotifications } from '@/contexts/NotificationContext';
 import NotificationPanel from '@/components/NotificationPanel';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getRiskFromForecast = (forecast) => {
   if (!forecast || !Array.isArray(forecast)) return [];
@@ -34,111 +34,249 @@ const getRiskFromForecast = (forecast) => {
 
 const Dashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [userLocation, setUserLocation] = useState<Location | null>(null);
-  const [locationName, setLocationName] = useState('Location');
   const [weather, setWeather] = useState<any>(null);
   const [forecast, setForecast] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [femaDisasters, setFemaDisasters] = useState<any[]>([]);
   const [riskAssessment, setRiskAssessment] = useState<any>(null);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const navigate = useNavigate();
   const { unreadCount, addNotification } = useNotifications();
-  
+  const { profile, loading: authLoading } = useAuth();
+
+  console.log('[Dashboard Page] Rendering with auth state:', { profile, authLoading });
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const loadUserLocation = async () => {
-      const savedLocation = localStorage.getItem('userLocation');
-      const savedZipCode = localStorage.getItem('userZipCode');
-      
-      if (savedLocation) {
-        try {
-          const parsedLocation = JSON.parse(savedLocation);
-          setUserLocation(parsedLocation);
-          
-          if (savedZipCode) {
-            setLocationName(savedZipCode);
-            try {
-              const weatherData = await getWeatherByZip(savedZipCode);
-              setWeather(weatherData.weather);
-              setForecast(weatherData.forecast);
-              setAlerts(weatherData.alerts);
-
-              // Add notifications for weather alerts
-              if (weatherData.alerts && weatherData.alerts.length > 0) {
-                weatherData.alerts.forEach((alert: any) => {
-                  const severity = alert.severity?.toLowerCase();
-                  addNotification({
-                    title: alert.event || 'Weather Alert',
-                    message: alert.description || 'Check local conditions',
-                    type: severity === 'high' ? 'error' : severity === 'medium' ? 'warning' : 'info',
-                    source: 'National Weather Service'
-                  });
-                });
-              }
-
-              const assessment = await getAIAssessment(weatherData);
-              setRiskAssessment(assessment);
-
-              if (weatherData.geo && weatherData.geo.state) {
-                const fema = await getFemaDisastersByState(weatherData.geo.state);
-                setFemaDisasters(fema);
-                
-                // Add notifications for FEMA disasters
-                if (fema && fema.length > 0) {
-                  fema.forEach((disaster: any) => {
-                    addNotification({
-                      title: `FEMA Disaster: ${disaster.incidentType}`,
-                      message: disaster.declarationTitle || 'Federal disaster declaration in your area',
-                      type: 'warning',
-                      source: 'FEMA'
-                    });
-                  });
-                }
-              }
-            } catch (err) {
-              // Handle errors gracefully
-            }
-          } else {
-            setLocationName('Your Location');
-          }
-        } catch (error) {
-          setLocationName('Location Setup Required');
-        }
-      } else {
-        setLocationName('Location Setup Required');
+  const fetchData = useCallback(async () => {
+    console.log('[Dashboard Page] fetchData called.');
+    if (!profile?.location) {
+      console.log('[Dashboard Page] fetchData: No profile location, returning.');
+      if (!authLoading && profile && !profile.location) {
+        console.log('[Dashboard Page] Profile exists but location is missing, redirecting to setup.');
+        navigate('/location-setup');
       }
-    };
-
-    loadUserLocation();
-  }, []);
-
-  // Add some sample notifications for demonstration
-  useEffect(() => {
-    const hasAddedSampleNotifications = localStorage.getItem('sampleNotificationsAdded');
-    if (!hasAddedSampleNotifications) {
-      // Add sample notifications
-      addNotification({
-        title: 'Welcome to DisasterReady!',
-        message: 'Your emergency preparedness app is now set up and ready to help keep you safe.',
-        type: 'success',
-        source: 'System'
-      });
-      
-      addNotification({
-        title: 'Profile Setup Reminder',
-        message: 'Complete your household information and emergency contacts for better preparedness recommendations.',
-        type: 'info',
-        source: 'System'
-      });
-      
-      localStorage.setItem('sampleNotificationsAdded', 'true');
+      return;
     }
-  }, [addNotification]);
+
+    console.log('[Dashboard Page] fetchData: Profile location found, fetching data.');
+    setIsDataLoading(true);
+    setError(null);
+    try {
+      const weatherData = await getWeatherByLocation(profile.location);
+      console.log('[Dashboard Page] fetchData: Weather data received.', weatherData);
+      setWeather(weatherData.weather);
+      setForecast(weatherData.forecast);
+      setAlerts(weatherData.alerts);
+
+      if (weatherData.alerts && weatherData.alerts.length > 0) {
+        weatherData.alerts.forEach((alert: any) => {
+          const severity = alert.severity?.toLowerCase();
+          addNotification({
+            title: alert.event || 'Weather Alert',
+            message: alert.description || 'Check local conditions',
+            type: severity === 'high' ? 'error' : severity === 'medium' ? 'warning' : 'info',
+            source: 'National Weather Service'
+          });
+        });
+      }
+
+      const assessment = await getAIAssessment(weatherData);
+      console.log('[Dashboard Page] fetchData: AI assessment received.', assessment);
+      setRiskAssessment(assessment);
+
+      if (weatherData.geo && weatherData.geo.state) {
+        const fema = await getFemaDisastersByState(weatherData.geo.state);
+        console.log('[Dashboard Page] fetchData: FEMA disasters received.', fema);
+        setFemaDisasters(fema);
+        
+        if (fema && fema.length > 0) {
+          fema.forEach((disaster: any) => {
+            addNotification({
+              title: `FEMA Disaster: ${disaster.incidentType}`,
+              message: disaster.declarationTitle || 'Federal disaster declaration in your area',
+              type: 'warning',
+              source: 'FEMA'
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[Dashboard Page] Failed to fetch dashboard data:", err);
+      setError("We couldn't load the latest data. Please try again in a few moments.");
+    } finally {
+      console.log('[Dashboard Page] fetchData: Finished, setting data loading to false.');
+      setIsDataLoading(false);
+    }
+  }, [profile, authLoading, addNotification, navigate]);
+
+  useEffect(() => {
+    console.log('[Dashboard Page] useEffect for fetching data triggered:', { authLoading, profile });
+    if (!authLoading && profile) {
+      console.log('[Dashboard Page] Conditions met, calling fetchData.');
+      fetchData();
+    } else {
+      console.log('[Dashboard Page] Conditions not met for fetching data.');
+    }
+  }, [profile, authLoading, fetchData]);
+
+  const renderDashboardContent = () => {
+    console.log('[Dashboard Page] renderDashboardContent called:', { authLoading, profile, error, isDataLoading });
+    if (authLoading) {
+      console.log('[Dashboard Page] Rendering: Auth loading skeleton.');
+      return (
+        <div className="px-5 py-4 space-y-6">
+          <Skeleton className="h-24 w-full bg-muted" />
+          <Skeleton className="h-32 w-full bg-muted" />
+          <Skeleton className="h-40 w-full bg-muted" />
+          <Skeleton className="h-64 w-full bg-muted" />
+        </div>
+      );
+    }
+
+    if (!profile) {
+      console.log('[Dashboard Page] Rendering: No profile, redirecting to login.');
+      // This is a safeguard. If there's no profile, we shouldn't be on the dashboard.
+      navigate('/login');
+      return null;
+    }
+
+    if (!profile.location) {
+      console.log('[Dashboard Page] Rendering: No location found, showing setup prompt.');
+      return (
+        <div className="px-5 py-4 text-center">
+          <h2 className="text-xl font-semibold mb-2">Welcome!</h2>
+          <p className="text-muted-foreground mb-4">Please complete your setup to see personalized alerts and information.</p>
+          <Button onClick={() => navigate('/location-setup')}>
+            Go to Setup
+          </Button>
+        </div>
+      );
+    }
+
+    if (error) {
+      console.log('[Dashboard Page] Rendering: Error state.');
+      return (
+        <div className="px-5 py-4 text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+          <h2 className="text-xl font-semibold my-2">Could Not Load Data</h2>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchData}>
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+
+    if (isDataLoading) {
+      console.log('[Dashboard Page] Rendering: Data loading skeleton.');
+      return (
+        <div className="px-5 py-4 space-y-6">
+          <Skeleton className="h-24 w-full bg-muted" />
+          <Skeleton className="h-32 w-full bg-muted" />
+          <Skeleton className="h-40 w-full bg-muted" />
+          <Skeleton className="h-64 w-full bg-muted" />
+        </div>
+      );
+    }
+
+    console.log('[Dashboard Page] Rendering: Main content.');
+    return (
+      <div className="px-5 py-4">
+        <motion.div
+          className="mb-6 flex items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <MapPin size={18} className="text-muted-foreground mr-1" />
+          <span className="text-sm text-muted-foreground">
+            {`ZIP Code: ${profile.zip_code}`}
+          </span>
+        </motion.div>
+        
+        <RiskAssessmentCard assessment={riskAssessment} />
+        
+        {weather && (
+          <Card className="card-effect mb-6 p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Cloud className="text-primary" />
+              <span className="font-semibold text-foreground">Today's Weather</span>
+              <span className="ml-auto text-sm text-muted-foreground">{weather.weather?.[0]?.main} {Math.round(weather.main?.temp)}°F</span>
+            </div>
+            <div className="text-xs text-muted-foreground">{weather.weather?.[0]?.description}</div>
+            {alerts && alerts.length > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <AlertTriangle className="text-destructive" />
+                <span className="text-destructive font-medium">{alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            {femaDisasters && femaDisasters.length > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <Flame className="text-orange-400" />
+                <span className="text-orange-400 font-medium">Recent Disaster: {femaDisasters[0].incidentType}</span>
+              </div>
+            )}
+          </Card>
+        )}
+        
+        {forecast && forecast.length > 0 && (
+          <Card className="card-effect mb-6 p-4">
+            <h2 className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> 7-Day Risk Forecast</h2>
+            <ResponsiveContainer width="100%" height={120}>
+              <AreaChart data={getRiskFromForecast(forecast)}>
+                <defs>
+                  <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--destructive)" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.2}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis domain={[0, 100]} hide />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    borderColor: 'hsl(var(--border))',
+                  }}
+                />
+                <Area type="monotone" dataKey="risk" stroke="hsl(var(--primary))" fill="url(#riskGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+        
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold">Live Alerts</h2>
+            <Button variant="ghost" size="sm" className="text-primary flex items-center" onClick={() => navigate('/alerts')}>
+              View All <ArrowRight size={16} className="ml-1" />
+            </Button>
+          </div>
+          {alerts.slice(0, 2).map((alert, i) => <AlertCard key={i} {...alert} />)}
+        </motion.div>
+        
+        <motion.div className="card-effect mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+          {profile?.location ? (
+            <GoogleMap center={profile.location} zoom={11} height="200px" markers={[{ position: profile.location, title: 'Your Location' }]} />
+          ) : (
+            <div className="bg-muted h-48 flex items-center justify-center"><p className="text-muted-foreground">Loading map...</p></div>
+          )}
+          <CardContent className="p-4">
+            <h3 className="font-medium">Nearby Emergency Resources</h3>
+            <p className="text-sm text-muted-foreground mt-1">Shelters and medical centers in your area</p>
+            <Button className="w-full mt-3" variant="outline" onClick={() => navigate('/map')}>View Full Map</Button>
+          </CardContent>
+        </motion.div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -170,102 +308,7 @@ const Dashboard = () => {
       </motion.div>
       
       {/* Main Content */}
-      <div className="px-5 py-4">
-        <motion.div
-          className="mb-6 flex items-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <MapPin size={18} className="text-muted-foreground mr-1" />
-          <span className="text-sm text-muted-foreground">
-            {locationName === 'Location Setup Required' ? (
-              <button 
-                onClick={() => navigate('/location-setup')}
-                className="text-primary underline"
-              >
-                Set Your Location
-              </button>
-            ) : (
-              locationName
-            )}
-          </span>
-        </motion.div>
-        
-        <RiskAssessmentCard assessment={riskAssessment} />
-        
-        {weather && (
-          <Card className="card-effect mb-6 p-4 flex flex-col gap-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Cloud className="text-primary" />
-              <span className="font-semibold text-foreground">Today's Weather</span>
-              <span className="ml-auto text-sm text-muted-foreground">{weather.weather?.[0]?.main} {Math.round(weather.main?.temp)}°F</span>
-            </div>
-            <div className="text-xs text-muted-foreground">{weather.weather?.[0]?.description}</div>
-            {alerts && alerts.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <AlertTriangle className="text-destructive" />
-                <span className="text-destructive font-medium">{alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}</span>
-              </div>
-            )}
-            {femaDisasters && femaDisasters.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <Flame className="text-orange-400" />
-                <span className="text-orange-400 font-medium">Recent Disaster: {femaDisasters[0].incidentType}</span>
-              </div>
-            )}
-          </Card>
-        )}
-        
-        {forecast && forecast.length > 0 && (
-          <div className="card-effect mb-6 p-4">
-            <h2 className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> 7-Day Risk Forecast</h2>
-            <ResponsiveContainer width="100%" height={120}>
-              <AreaChart data={getRiskFromForecast(forecast)}>
-                <defs>
-                  <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--destructive)" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.2}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis domain={[0, 100]} hide />
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    borderColor: 'hsl(var(--border))',
-                  }}
-                />
-                <Area type="monotone" dataKey="risk" stroke="hsl(var(--primary))" fill="url(#riskGradient)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-        
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold">Live Alerts</h2>
-            <Button variant="ghost" size="sm" className="text-primary flex items-center" onClick={() => navigate('/alerts')}>
-              View All <ArrowRight size={16} className="ml-1" />
-            </Button>
-          </div>
-          {alerts.slice(0, 2).map((alert, i) => <AlertCard key={i} {...alert} />)}
-        </motion.div>
-        
-        <motion.div className="card-effect mt-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          {userLocation ? (
-            <GoogleMap center={userLocation} zoom={11} height="200px" markers={[{ position: userLocation, title: 'Your Location' }]} />
-          ) : (
-            <div className="bg-muted h-48 flex items-center justify-center"><p className="text-muted-foreground">Loading map...</p></div>
-          )}
-          <div className="p-4">
-            <h3 className="font-medium">Nearby Emergency Resources</h3>
-            <p className="text-sm text-muted-foreground mt-1">Shelters and medical centers in your area</p>
-            <Button className="w-full mt-3" variant="outline" onClick={() => navigate('/map')}>View Full Map</Button>
-          </div>
-        </motion.div>
-      </div>
+      {renderDashboardContent()}
       
       <BottomNavigation />
       

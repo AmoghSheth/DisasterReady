@@ -3,72 +3,82 @@ import { cn } from '@/lib/utils';
 import { AlertTriangle, CloudLightning, CloudRain, Tornado } from 'lucide-react';
 import { format } from 'date-fns';
 
-type AlertSeverity = 'low' | 'medium' | 'high';
-type AlertType = 'storm' | 'earthquake' | 'wildfire' | 'flood' | 'general';
-
 interface AlertCardProps {
-  title: string;
+  event: string;
+  start: number;
+  end: number;
   description: string;
-  timestamp: Date;
   severity: AlertSeverity;
-  type: AlertType;
+  sender_name: string;
   className?: string;
 }
 
 const AlertCard = ({ 
-  title, 
+  event: title,
+  start,
   description, 
-  timestamp, 
   severity, 
-  type,
   className 
 }: AlertCardProps) => {
   const getBorderColor = () => {
-    switch (severity) {
-      case 'low':
+    switch (severity?.toLowerCase()) {
+      case 'minor':
         return 'border-green-500';
-      case 'medium':
+      case 'moderate':
         return 'border-yellow-500';
-      case 'high':
+      case 'severe':
+      case 'extreme':
         return 'border-red-500';
+      default:
+        return 'border-gray-400';
     }
   };
 
   const getIcon = () => {
-    switch (type) {
-      case 'storm':
-        return <CloudLightning className="h-6 w-6 text-blue-500" />;
-      case 'earthquake':
-        return <Tornado className="h-6 w-6 text-orange-500" />;
-      case 'wildfire':
-        return <AlertTriangle className="h-6 w-6 text-red-500" />;
-      case 'flood':
-        return <CloudRain className="h-6 w-6 text-blue-500" />;
-      default:
-        return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
+    const lowerCaseTitle = title?.toLowerCase() || '';
+    if (lowerCaseTitle.includes('storm') || lowerCaseTitle.includes('thunderstorm')) {
+      return <CloudLightning className="h-6 w-6 text-blue-500" />;
     }
+    if (lowerCaseTitle.includes('rain') || lowerCaseTitle.includes('flood')) {
+      return <CloudRain className="h-6 w-6 text-blue-500" />;
+    }
+    if (lowerCaseTitle.includes('tornado')) {
+      return <Tornado className="h-6 w-6 text-orange-500" />;
+    }
+    if (lowerCaseTitle.includes('fire')) {
+      return <AlertTriangle className="h-6 w-6 text-red-500" />;
+    }
+    return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
   };
 
   const getSeverityBadge = () => {
+    if (!severity) return null;
     const colors = {
-      low: 'bg-green-100 text-green-800',
-      medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800'
+      minor: 'bg-green-100 text-green-800',
+      moderate: 'bg-yellow-100 text-yellow-800',
+      severe: 'bg-red-100 text-red-800',
+      extreme: 'bg-red-100 text-red-800',
     };
     
+    const severityKey = severity.toLowerCase() as keyof typeof colors;
+
     return (
       <span className={cn(
         'px-2 py-1 text-xs font-medium rounded',
-        colors[severity]
+        colors[severityKey] || 'bg-gray-100 text-gray-800'
       )}>
         {severity.charAt(0).toUpperCase() + severity.slice(1)}
       </span>
     );
   };
 
+  const formattedDate = start && typeof start === 'number' 
+    ? format(new Date(start * 1000), 'MMM d, yyyy • h:mm a')
+    : 'No date available';
+
   return (
     <div className={cn(
-      'bg-white rounded-xl shadow-md p-4 border-l-4 mb-4',
+      'bg-card rounded-xl shadow-md p-4 border-l-4 mb-4',
       getBorderColor(),
       className
     )}>
@@ -81,9 +91,9 @@ const AlertCard = ({
             <h3 className="font-semibold">{title}</h3>
             {getSeverityBadge()}
           </div>
-          <p className="text-sm text-gray-600 mb-2">{description}</p>
-          <p className="text-xs text-gray-500">
-            {format(timestamp, 'MMM d, yyyy • h:mm a')}
+          <p className="text-sm text-muted-foreground mb-2">{description}</p>
+          <p className="text-xs text-muted-foreground">
+            {formattedDate}
           </p>
         </div>
       </div>

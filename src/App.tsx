@@ -1,11 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import LocationProvider from "./contexts/LocationContext";
-import { HouseholdProvider } from "./contexts/HouseholdContext";
-import { NotificationProvider } from "./contexts/NotificationContext";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Welcome from "./pages/Welcome";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
@@ -19,37 +12,23 @@ import Profile from "./pages/Profile";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
-
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <NotificationProvider>
-        <LocationProvider>
-          <HouseholdProvider>
-          <BrowserRouter>
-                      <Routes>
-            <Route path="/" element={<Welcome />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/location-setup" element={<LocationSetup />} />
-            <Route path="/household-setup" element={<HouseholdSetup />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/plan" element={<Plan />} />
-            <Route path="/map" element={<Map />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          </BrowserRouter>
-          </HouseholdProvider>
-        </LocationProvider>
-      </NotificationProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Welcome />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/location-setup" element={<LocationSetup />} />
+      <Route path="/household-setup" element={<HouseholdSetup />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/alerts" element={<Alerts />} />
+      <Route path="/plan" element={<Plan />} />
+      <Route path="/map" element={<Map />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </BrowserRouter>
 );
 
 export default App;
