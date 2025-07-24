@@ -60,7 +60,7 @@ const Login = () => {
       
       // Navigate to dashboard
       setTimeout(() => {
-        navigate('/');
+        navigate('/dashboard');
       }, 1000);
       
     } catch (error) {
