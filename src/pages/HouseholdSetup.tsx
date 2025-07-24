@@ -8,14 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Dog, Cat, Check, Users, Heart, Pill } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
-import { useHousehold } from '@/contexts/HouseholdContext';
+import { supabase } from '@/lib/supabaseClient';
 
 const HouseholdSetup = () => {
   const [householdSize, setHouseholdSize] = useState('');
   const [medicalNeeds, setMedicalNeeds] = useState<string[]>([]);
   const [pets, setPets] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
-  const { updateHousehold } = useHousehold();
 
   const medicalNeedOptions = [
     { id: 'medications', label: 'Medications', icon: <Pill className="w-4 h-4" /> },
@@ -41,20 +41,35 @@ const HouseholdSetup = () => {
     );
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (!householdSize) {
       toast.error("Please select your household size");
       return;
     }
     
-    updateHousehold({
-      size: parseInt(householdSize),
-      pets,
-      medicalNeeds
-    });
-    
-    toast.success("Setup complete!");
-    navigate('/dashboard');
+    setIsProcessing(true);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          household_size: parseInt(householdSize),
+          pets: pets, // Save the array directly
+          medical_needs: medicalNeeds, // Save the array directly
+        })
+        .eq('username', (await supabase.auth.getUser()).data.user?.email);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Setup complete! Welcome to your dashboard.");
+      navigate('/'); // Navigate to dashboard
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast.error(`Failed to save household info: ${errorMessage}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -95,7 +110,7 @@ const HouseholdSetup = () => {
               <Users className="w-4 h-4 mr-2" />
               Household Size
             </label>
-            <Select value={householdSize} onValueChange={setHouseholdSize}>
+            <Select value={householdSize} onValueChange={setHouseholdSize} disabled={isProcessing}>
               <SelectTrigger id="household-size" className="w-full">
                 <SelectValue placeholder="Select number of people" />
               </SelectTrigger>
@@ -117,6 +132,7 @@ const HouseholdSetup = () => {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => togglePet('dog')}
+                disabled={isProcessing}
                 className={`p-4 rounded-lg flex items-center justify-center transition-all ${
                   pets.includes('dog') 
                     ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 shadow-sm' 
@@ -129,6 +145,7 @@ const HouseholdSetup = () => {
               
               <button
                 onClick={() => togglePet('cat')}
+                disabled={isProcessing}
                 className={`p-4 rounded-lg flex items-center justify-center transition-all ${
                   pets.includes('cat') 
                     ? 'bg-blue-100 text-blue-700 border-2 border-blue-300 shadow-sm' 
@@ -160,6 +177,7 @@ const HouseholdSetup = () => {
                     id={need.id}
                     checked={medicalNeeds.includes(need.id)}
                     onCheckedChange={() => toggleMedicalNeed(need.id)}
+                    disabled={isProcessing}
                     className="mr-3"
                   />
                   <Label 
@@ -181,8 +199,9 @@ const HouseholdSetup = () => {
               onClick={handleFinish} 
               className="w-full"
               icon={<Check size={18} />}
+              disabled={isProcessing}
             >
-              Finish Setup
+              {isProcessing ? 'Saving...' : 'Finish Setup'}
             </AnimatedButton>
           </div>
         </motion.div>

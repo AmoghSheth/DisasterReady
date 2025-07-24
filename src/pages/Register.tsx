@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabaseClient';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -60,30 +61,38 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      // Store user data in localStorage (replace with actual database call)
-      const userData = {
-        id: Date.now().toString(),
-        name: formData.name,
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password, // In real app, this would be hashed
-        createdAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('userData', JSON.stringify(userData));
-      localStorage.setItem('userProfile', JSON.stringify({
-        name: formData.name,
-        email: formData.email
-      }));
-      
-      toast.success('Account created successfully!');
-      
-      // Navigate to location setup
-      setTimeout(() => {
-        navigate('/location-setup');
-      }, 1000);
+        password: formData.password,
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (authData.user) {
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            username: authData.user.email,
+            full_name: formData.name,
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+        
+        toast.success('Account created successfully!');
+        
+        // Navigate to location setup
+        setTimeout(() => {
+          navigate('/location-setup');
+        }, 1000);
+      }
       
     } catch (error) {
-      toast.error('Failed to create account. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast.error(`Failed to create account: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }

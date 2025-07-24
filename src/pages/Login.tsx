@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabaseClient';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -46,31 +47,25 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Check stored user data (replace with actual database call)
-      const storedUserData = localStorage.getItem('userData');
-      
-      if (storedUserData) {
-        const userData = JSON.parse(storedUserData);
-        
-        if (userData.email === formData.email && userData.password === formData.password) {
-          toast.success('Login successful!');
-          
-          // Set login status
-          localStorage.setItem('isLoggedIn', 'true');
-          
-          // Navigate to dashboard
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1000);
-        } else {
-          toast.error('Invalid email or password');
-        }
-      } else {
-        toast.error('No account found. Please register first.');
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        throw error;
       }
+
+      toast.success('Login successful!');
+      
+      // Navigate to dashboard
+      setTimeout(() => {
+        navigate('/');
+      }, 1000);
       
     } catch (error) {
-      toast.error('Login failed. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Invalid email or password';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

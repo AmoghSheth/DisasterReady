@@ -4,64 +4,73 @@ import { useNavigate } from 'react-router-dom';
 import GradientBackground from '@/components/GradientBackground';
 import AnimatedButton from '@/components/AnimatedButton';
 import { Input } from '@/components/ui/input';
-import { MapPin, ArrowRight } from 'lucide-react';
+import { MapPin, ArrowRight, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
+import { supabase } from '@/lib/supabaseClient';
+
+type LocationCoords = {
+  lat: number;
+  lng: number;
+};
 
 const LocationSetup = () => {
   const [zipCode, setZipCode] = useState('');
+  const [location, setLocation] = useState<LocationCoords | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const navigate = useNavigate();
-  const { error, getCurrentLocation, geocodeZipCode } = useGoogleMaps();
+  const { getCurrentLocation } = useGoogleMaps();
 
   const handleUseGPS = async () => {
-    setIsProcessing(true);
+    setIsDetecting(true);
     try {
-      const location = await getCurrentLocation();
-      if (location) {
+      const capturedLocation = await getCurrentLocation();
+      if (capturedLocation) {
+        setLocation(capturedLocation);
         toast.success("Location detected successfully!");
-        // Store location in localStorage for other components
-        localStorage.setItem('userLocation', JSON.stringify(location));
-        navigate('/household-setup');
       } else {
         toast.error("Unable to detect location. Please check your browser permissions.");
       }
     } catch (error) {
       console.error('GPS location error:', error);
-      toast.error("Location detection failed. Please try entering your ZIP code instead.");
+      toast.error("Location detection failed. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setIsDetecting(false);
     }
   };
 
   const handleContinue = async () => {
     if (zipCode.length !== 5 || !/^\d+$/.test(zipCode)) {
-      toast.error("Please enter a valid 5-digit ZIP code");
+      toast.error("Please enter a valid 5-digit ZIP code.");
+      return;
+    }
+    if (!location) {
+      toast.error("Please use the 'Use Current Location' button to capture your coordinates.");
       return;
     }
 
     setIsProcessing(true);
     try {
-      console.log('Geocoding ZIP code:', zipCode);
-      const location = await geocodeZipCode(zipCode);
-      if (location) {
-        console.log('Geocoded location:', location);
-        toast.success("Location found successfully!");
-        // Store location in localStorage in the format expected by Map component
-        const mapLocation = {
-          lat: location.lat,
-          lng: location.lng
-        };
-        localStorage.setItem('userLocation', JSON.stringify(mapLocation));
-        localStorage.setItem('userZipCode', zipCode);
-        navigate('/household-setup');
-      } else {
-        toast.error("Unable to find location for this ZIP code.");
+      const { error } = await supabase
+        .from('users')
+        .update({
+          zip_code: zipCode,
+          location: location,
+        })
+        .eq('username', (await supabase.auth.getUser()).data.user?.email);
+
+      if (error) {
+        throw error;
       }
+      
+      toast.success("Location saved successfully!");
+      navigate('/household-setup');
+
     } catch (error) {
-      console.error('ZIP code geocoding error:', error);
-      toast.error("Failed to geocode ZIP code. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
+      toast.error(`Failed to save location: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
@@ -90,7 +99,7 @@ const LocationSetup = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          We'll use your location to provide relevant alerts and preparedness information.
+          We need both your ZIP code and current location for accurate alerts.
         </motion.p>
         
         <motion.div
@@ -101,12 +110,12 @@ const LocationSetup = () => {
         >
           <div className="space-y-2">
             <label htmlFor="zipcode" className="block text-sm font-medium text-gray-700">
-              ZIP Code
+              1. Enter Your ZIP Code
             </label>
             <Input 
               id="zipcode"
               type="text" 
-              placeholder="Enter your ZIP code" 
+              placeholder="Enter your 5-digit ZIP code" 
               maxLength={5}
               value={zipCode}
               onChange={(e) => setZipCode(e.target.value.replace(/[^0-9]/g, ''))}
@@ -115,32 +124,34 @@ const LocationSetup = () => {
             />
           </div>
           
-          <div className="text-center">
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">OR</span>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              2. Get Your Current Location
+            </label>
+            <button 
+              onClick={handleUseGPS}
+              className={`flex items-center justify-center w-full py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                location
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+              }`}
+              disabled={isDetecting || isProcessing}
+            >
+              {location ? (
+                <CheckCircle className="mr-2" size={18} />
+              ) : (
+                <MapPin className="mr-2" size={18} />
+              )}
+              {isDetecting ? "Detecting..." : location ? "Location Captured!" : "Use Current Location"}
+            </button>
           </div>
-          
-          <button 
-            onClick={handleUseGPS}
-            className="flex items-center justify-center w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors disabled:opacity-50"
-            disabled={isProcessing}
-          >
-            <MapPin className="mr-2" size={18} />
-            {isProcessing ? "Detecting Location..." : "Use Current Location"}
-          </button>
           
           <div className="pt-4">
             <AnimatedButton 
               onClick={handleContinue} 
               className="w-full"
               icon={<ArrowRight size={18} />}
-              disabled={isProcessing}
+              disabled={!zipCode || !location || isProcessing}
             >
               Continue
             </AnimatedButton>
