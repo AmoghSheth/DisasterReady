@@ -18,6 +18,7 @@ type AuthContextType = {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  updateUserProfile: async () => ({ success: false, error: "Function not implemented." }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -33,28 +35,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Function to update user profile in Supabase
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) {
+      return { success: false, error: "No user logged in." };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('username', user.email)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setProfile(data); // Update local state with new profile data
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating user profile:", error.message);
+      return { success: false, error: error.message };
+    }
+  };
+
   useEffect(() => {
-    console.log('[AuthContext] useEffect started');
     setLoading(true);
 
     const setData = async () => {
-      console.log('[AuthContext] setData: Fetching session...');
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('[AuthContext] setData: Error getting session:', error);
         setLoading(false);
         return;
       }
-      console.log('[AuthContext] setData: Session fetched', session);
       setSession(session);
       
       const currentUser = session?.user;
       setUser(currentUser ?? null);
-      console.log('[AuthContext] setData: User set', currentUser);
 
       if (currentUser) {
-        console.log(`[AuthContext] setData: User found, fetching profile for ${currentUser.email}...`);
         const { data, error: profileError } = await supabase
           .from('users')
           .select('*')
@@ -62,18 +84,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .single();
         
         if (profileError) {
-          console.error('[AuthContext] setData: Error fetching profile:', profileError);
           setProfile(null);
         } else {
-          console.log('[AuthContext] setData: Profile fetched', data);
           setProfile(data);
         }
       } else {
-        console.log('[AuthContext] setData: No user, setting profile to null');
         setProfile(null);
       }
       
-      console.log('[AuthContext] setData: Finished, setting loading to false');
       setLoading(false);
     };
 
@@ -81,14 +99,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log(`[AuthContext] onAuthStateChange: Event received - ${event}`, session);
         setSession(session);
         const currentUser = session?.user;
         setUser(currentUser ?? null);
-        console.log('[AuthContext] onAuthStateChange: User set', currentUser);
 
         if (currentUser) {
-          console.log(`[AuthContext] onAuthStateChange: User found, fetching profile for ${currentUser.email}...`);
           setLoading(true);
           const { data, error } = await supabase
             .from('users')
@@ -97,23 +112,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .single();
           
           if (error) {
-            console.error("[AuthContext] onAuthStateChange: Error fetching profile:", error);
             setProfile(null);
           } else {
-            console.log('[AuthContext] onAuthStateChange: Profile fetched', data);
             setProfile(data);
           }
-          console.log('[AuthContext] onAuthStateChange: Finished, setting loading to false');
           setLoading(false);
         } else {
-          console.log('[AuthContext] onAuthStateChange: No user, setting profile to null');
           setProfile(null);
         }
       }
     );
 
     return () => {
-      console.log('[AuthContext] useEffect cleanup: Unsubscribing from auth changes.');
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -123,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     profile,
     loading,
+    updateUserProfile,
   };
 
   return (

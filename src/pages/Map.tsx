@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MapPin, Navigation, Phone, Hospital, Shield } from 'lucide-react';
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
-import { useLocation } from '@/contexts/LocationContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Location, PlaceResult } from '@/utils/googleMaps';
 
 const Map = () => {
-  const { location } = useLocation();
+  const { profile, loading: authLoading } = useAuth();
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [shelters, setShelters] = useState<PlaceResult[]>([]);
   const [medicalFacilities, setMedicalFacilities] = useState<PlaceResult[]>([]);
@@ -20,34 +20,15 @@ const Map = () => {
   const { findNearbyPlaces, mapsService } = useGoogleMaps();
 
   useEffect(() => {
-    console.log('Map component mounting, location context:', location);
-    
-    // First try to get location from localStorage (set by LocationSetup)
-    const savedLocation = localStorage.getItem('userLocation');
-    if (savedLocation) {
-      try {
-        const parsedLocation = JSON.parse(savedLocation);
-        console.log('Found saved location in localStorage:', parsedLocation);
-        setUserLocation(parsedLocation);
-        return;
-      } catch (error) {
-        console.error('Error parsing saved location:', error);
-      }
-    }
-    
-    // Fallback to context location
-    if (location.coords) {
-      const mapLocation = {
-        lat: location.coords.latitude,
-        lng: location.coords.longitude
-      };
-      console.log('Using location from context:', mapLocation);
-      setUserLocation(mapLocation);
+    if (authLoading) return; // Wait for auth to load
+
+    if (profile?.location) {
+      setUserLocation(profile.location);
     } else {
-      console.log('No location found, using default (Los Angeles)');
-      setUserLocation({ lat: 34.0522, lng: -118.2437 });
+      // Fallback to a default location if no profile location is set
+      setUserLocation({ lat: 34.0522, lng: -118.2437 }); // Los Angeles
     }
-  }, []);
+  }, [authLoading, profile]);
 
   useEffect(() => {
     let isMounted = true; // Prevent state updates if component unmounts
@@ -218,14 +199,13 @@ const Map = () => {
       });
     }
 
-    console.log('Generated markers for tab', currentTab, ':', markers);
     return markers;
   };
 
-  if (!userLocation) {
+  if (authLoading || !userLocation) {
     return (
       <div className="min-h-screen bg-gray-50 pb-20 flex items-center justify-center">
-        <p>Loading location...</p>
+        <p>Loading map and location data...</p>
       </div>
     );
   }

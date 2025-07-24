@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, AlertTriangle, Flame, ServerCrash, Info } from 'lucide-react';
 import { getWeatherByZip, getFemaDisastersByState, getNwsAlertsByLatLon } from '@/utils/externalData';
+import { useAuth } from '@/contexts/AuthContext';
 import { useGoogleMapsContext } from '@/contexts/GoogleMapsContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -19,32 +20,36 @@ const Alerts = () => {
   const [filterSeverity, setFilterSeverity] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { profile, loading: authLoading } = useAuth();
   const { mapsService, isLoaded } = useGoogleMapsContext();
 
   useEffect(() => {
     const fetchAllAlerts = async () => {
-      if (!isLoaded || !mapsService) return;
+      if (authLoading || !profile || !isLoaded || !mapsService) return;
 
       setIsLoading(true);
       setErrors({});
-      const zip = localStorage.getItem('userZipCode');
-      const locationStr = localStorage.getItem('userLocation');
 
-      if (!zip || !locationStr) {
+      if (!profile.zip_code || !profile.location) {
         setErrors({ location: "Location not set. Please set your location in your profile." });
         setIsLoading(false);
         return;
       }
 
       try {
-        const location = JSON.parse(locationStr);
-        const { lat, lng } = location;
+        const { lat, lng } = profile.location;
 
-        const geoData = await mapsService.reverseGeocode({ lat, lng });
-        const state = geoData?.state;
+        let state = null;
+        try {
+          const geoData = await mapsService.reverseGeocode({ lat, lng });
+          state = geoData?.state;
+        } catch (geoError) {
+          console.error("Reverse geocoding error:", geoError);
+          setErrors(prev => ({ ...prev, geocoding: 'Could not determine state from location.' }));
+        }
 
         const results = await Promise.allSettled([
-          getWeatherByZip(zip),
+          getWeatherByZip(profile.zip_code),
           state ? getFemaDisastersByState(state) : Promise.resolve([]),
           getNwsAlertsByLatLon(lat, lng)
         ]);
@@ -81,7 +86,7 @@ const Alerts = () => {
     };
 
     fetchAllAlerts();
-  }, [isLoaded, mapsService]);
+  }, [authLoading, profile, isLoaded, mapsService]);
 
   const allAlerts = useMemo(() => [
     ...weatherAlerts.map((a, i) => ({

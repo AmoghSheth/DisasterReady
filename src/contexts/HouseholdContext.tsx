@@ -1,9 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HouseholdData {
-  size: number;
-  pets: string[];
-  medicalNeeds: string[];
   supplies: {
     [key: string]: {
       quantity: number;
@@ -14,45 +12,36 @@ interface HouseholdData {
 
 interface HouseholdContextType {
   household: HouseholdData;
-  updateHousehold: (data: Partial<HouseholdData>) => void;
   updateSupply: (item: string, quantity: number, completed: boolean) => void;
 }
-
-const defaultHousehold: HouseholdData = {
-  size: 1,
-  pets: [],
-  medicalNeeds: [],
-  supplies: {}
-};
 
 const HouseholdContext = createContext<HouseholdContextType | undefined>(undefined);
 
 export const HouseholdProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [household, setHousehold] = useState<HouseholdData>(() => {
-    const saved = localStorage.getItem('householdData');
-    return saved ? JSON.parse(saved) : defaultHousehold;
+  const { user } = useAuth();
+  const [householdSupplies, setHouseholdSupplies] = useState<HouseholdData['supplies']>(() => {
+    if (!user) return {};
+    const saved = localStorage.getItem(`householdSupplies_${user.id}`);
+    return saved ? JSON.parse(saved) : {};
   });
 
   useEffect(() => {
-    localStorage.setItem('householdData', JSON.stringify(household));
-  }, [household]);
+    if (user) {
+      localStorage.setItem(`householdSupplies_${user.id}`, JSON.stringify(householdSupplies));
+    }
+  }, [householdSupplies, user]);
 
-  const updateHousehold = (data: Partial<HouseholdData>) => {
-    setHousehold(prev => ({ ...prev, ...data }));
-  };
-
-  const updateSupply = (item: string, quantity: number, completed: boolean) => {
-    setHousehold(prev => ({
+  const updateSupply = useCallback((item: string, quantity: number, completed: boolean) => {
+    setHouseholdSupplies(prev => ({
       ...prev,
-      supplies: {
-        ...prev.supplies,
-        [item]: { quantity, completed }
-      }
+      [item]: { quantity, completed }
     }));
-  };
+  }, []);
+
+  const household = { supplies: householdSupplies };
 
   return (
-    <HouseholdContext.Provider value={{ household, updateHousehold, updateSupply }}>
+    <HouseholdContext.Provider value={{ household, updateSupply }}>
       {children}
     </HouseholdContext.Provider>
   );

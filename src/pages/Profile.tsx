@@ -12,10 +12,19 @@ import { User, Bell, Moon, Globe, Home, Phone, Shield, LogOut, Plus, Edit2, Tras
 import { Separator } from '@/components/ui/separator';
 import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
-import { useLocation } from '@/contexts/LocationContext';
-import { useHousehold } from '@/contexts/HouseholdContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/lib/supabaseClient';
+
+interface EmergencyContact {
+  id: string;
+  name: string;
+  relation: string;
+  phone: string;
+}
 
 const Profile = () => {
+  const { profile, loading: authLoading, updateUserProfile } = useAuth();
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
   });
@@ -26,54 +35,51 @@ const Profile = () => {
     return localStorage.getItem('language') || 'english';
   });
   const [locationName, setLocationName] = useState('Your Location');
-  const [emergencyContacts, setEmergencyContacts] = useState([
-    { id: 1, name: 'Jane Smith', relation: 'Spouse', phone: '(555) 123-4567' },
-    { id: 2, name: 'Robert Doe', relation: 'Parent', phone: '(555) 987-6543' }
-  ]);
-  const [editingContact, setEditingContact] = useState(null);
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
+  const [editingContact, setEditingContact] = useState<EmergencyContact | null>(null);
   const [contactForm, setContactForm] = useState({ name: '', relation: '', phone: '' });
   const [isAddingContact, setIsAddingContact] = useState(false);
-  const [userProfile, setUserProfile] = useState(() => {
-    const saved = localStorage.getItem('userProfile');
-    return saved ? JSON.parse(saved) : { name: 'John Doe', email: 'john.doe@example.com' };
-  });
-  const [profileForm, setProfileForm] = useState(userProfile);
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingHousehold, setIsEditingHousehold] = useState(false);
-  const [householdForm, setHouseholdForm] = useState({ size: 1, pets: '', medicalNeeds: '' });
+  const [householdForm, setHouseholdForm] = useState({ size: 1, pets: '', medicalNeeds: '', location: { lat: 0, lng: 0 }, zip_code: '' });
   const navigate = useNavigate();
-  const { location } = useLocation();
-  const { household, updateHousehold } = useHousehold();
 
+  // Load initial data from profile
   useEffect(() => {
-    const loadLocationName = () => {
-      if (location.city && location.state) {
-        setLocationName(`${location.city}, ${location.state}`);
-      } else if (location.zipCode) {
-        setLocationName(location.zipCode);
+    if (profile) {
+      setProfileForm({ full_name: profile.full_name || '', email: profile.username || '' });
+      setHouseholdForm({
+        size: profile.household_size || 1,
+        pets: profile.pets?.join(', ') || '',
+        medicalNeeds: profile.medical_needs?.join(', ') || '',
+        location: profile.location || { lat: 0, lng: 0 },
+        zip_code: profile.zip_code || '',
+      });
+      if (profile.zip_code) {
+        setLocationName(profile.zip_code);
+      } else if (profile.location) {
+        setLocationName(`${profile.location.lat.toFixed(2)}, ${profile.location.lng.toFixed(2)}`);
+      }
+    }
+  }, [profile]);
+
+  // Load emergency contacts from Supabase
+  useEffect(() => {
+    const fetchContacts = async () => {
+      if (!profile?.username) return;
+      const { data, error } = await supabase
+        .from('user_contacts')
+        .select('*')
+        .eq('username', profile.username);
+      if (error) {
+        console.error("Error fetching contacts:", error);
       } else {
-        setLocationName('Location not set');
+        setEmergencyContacts(data as EmergencyContact[]);
       }
     };
-    loadLocationName();
-  }, [location]);
-
-  // Load emergency contacts from localStorage
-  useEffect(() => {
-    const savedContacts = localStorage.getItem('emergencyContacts');
-    if (savedContacts) {
-      setEmergencyContacts(JSON.parse(savedContacts));
-    }
-  }, []);
-
-  // Initialize household form with current household data
-  useEffect(() => {
-    setHouseholdForm({
-      size: household.size,
-      pets: household.pets.join(', '),
-      medicalNeeds: household.medicalNeeds.join(', ')
-    });
-  }, [household]);
+    fetchContacts();
+  }, [profile]);
 
   // Apply dark mode to document
   useEffect(() => {
@@ -102,49 +108,65 @@ const Profile = () => {
     toast.success(`Language changed to ${value.charAt(0).toUpperCase() + value.slice(1)}`);
   };
 
-  const handleAddContact = () => {
-    if (!contactForm.name || !contactForm.relation || !contactForm.phone) {
-      toast.error('Please fill in all fields');
+  const handleAddContact = async () => {
+    if (!contactForm.name || !contactForm.phone || !profile?.username) {
+      toast.error('Please fill in all required fields');
       return;
     }
     
     const newContact = {
-      id: Date.now(),
+      username: profile.username,
       name: contactForm.name,
       relation: contactForm.relation,
       phone: contactForm.phone
     };
     
-    const updatedContacts = [...emergencyContacts, newContact];
-    setEmergencyContacts(updatedContacts);
-    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
-    setContactForm({ name: '', relation: '', phone: '' });
-    setIsAddingContact(false);
-    toast.success('Emergency contact added successfully');
+    const { data, error } = await supabase
+      .from('user_contacts')
+      .insert(newContact)
+      .select()
+      .single();
+
+    if (error) {
+      toast.error(`Failed to add contact: ${error.message}`);
+    } else {
+      setEmergencyContacts(prev => [...prev, data as EmergencyContact]);
+      setContactForm({ name: '', relation: '', phone: '' });
+      setIsAddingContact(false);
+      toast.success('Emergency contact added successfully');
+    }
   };
 
-  const handleEditContact = (contact) => {
+  const handleEditContact = (contact: EmergencyContact) => {
     setEditingContact(contact);
     setContactForm({ name: contact.name, relation: contact.relation, phone: contact.phone });
   };
 
-  const handleUpdateContact = () => {
-    if (!contactForm.name || !contactForm.relation || !contactForm.phone) {
-      toast.error('Please fill in all fields');
+  const handleUpdateContact = async () => {
+    if (!editingContact || !contactForm.name || !contactForm.phone) {
+      toast.error('Please fill in all required fields');
       return;
     }
     
-    const updatedContacts = emergencyContacts.map(contact =>
-      contact.id === editingContact.id
-        ? { ...contact, name: contactForm.name, relation: contactForm.relation, phone: contactForm.phone }
-        : contact
-    );
-    
-    setEmergencyContacts(updatedContacts);
-    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
-    setEditingContact(null);
-    setContactForm({ name: '', relation: '', phone: '' });
-    toast.success('Emergency contact updated successfully');
+    const { error } = await supabase
+      .from('user_contacts')
+      .update({ name: contactForm.name, relation: contactForm.relation, phone: contactForm.phone })
+      .eq('id', editingContact.id);
+
+    if (error) {
+      toast.error(`Failed to update contact: ${error.message}`);
+    } else {
+      setEmergencyContacts(prev => 
+        prev.map(contact =>
+          contact.id === editingContact.id
+            ? { ...contact, name: contactForm.name, relation: contactForm.relation, phone: contactForm.phone }
+            : contact
+        )
+      );
+      setEditingContact(null);
+      setContactForm({ name: '', relation: '', phone: '' });
+      toast.success('Emergency contact updated successfully');
+    }
   };
 
   const resetContactForm = () => {
@@ -154,72 +176,133 @@ const Profile = () => {
   };
 
   const handleEditProfile = () => {
-    setProfileForm(userProfile);
+    if (profile) {
+      setProfileForm({ full_name: profile.full_name || '', email: profile.username || '' });
+    }
     setIsEditingProfile(true);
   };
 
-  const handleUpdateProfile = () => {
-    if (!profileForm.name || !profileForm.email) {
+  const handleUpdateProfile = async () => {
+    if (!profileForm.full_name || !profileForm.email) {
       toast.error('Please fill in all fields');
       return;
     }
     
-    setUserProfile(profileForm);
-    localStorage.setItem('userProfile', JSON.stringify(profileForm));
-    setIsEditingProfile(false);
-    toast.success('Profile updated successfully');
+    const { success, error } = await updateUserProfile({
+      full_name: profileForm.full_name,
+      username: profileForm.email, // Assuming username can be updated via email
+    });
+
+    if (success) {
+      setIsEditingProfile(false);
+      toast.success('Profile updated successfully');
+    } else {
+      toast.error(`Failed to update profile: ${error}`);
+    }
   };
 
   const resetProfileForm = () => {
-    setProfileForm(userProfile);
+    if (profile) {
+      setProfileForm({ full_name: profile.full_name || '', email: profile.username || '' });
+    }
     setIsEditingProfile(false);
   };
 
   const handleEditHousehold = () => {
-    setHouseholdForm({
-      size: household.size,
-      pets: household.pets.join(', '),
-      medicalNeeds: household.medicalNeeds.join(', ')
-    });
+    if (profile) {
+      setHouseholdForm({
+        size: profile.household_size || 1,
+        pets: profile.pets?.join(', ') || '',
+        medicalNeeds: profile.medical_needs?.join(', ') || '',
+        location: profile.location || { lat: 0, lng: 0 },
+        zip_code: profile.zip_code || '',
+      });
+    }
     setIsEditingHousehold(true);
   };
 
-  const handleUpdateHousehold = () => {
+  const handleUpdateHousehold = async () => {
     if (householdForm.size < 1) {
       toast.error('Household size must be at least 1');
       return;
     }
     
-    const updatedHousehold = {
-      size: householdForm.size,
+    const updatedHouseholdData = {
+      household_size: householdForm.size,
       pets: householdForm.pets.split(',').map(pet => pet.trim()).filter(pet => pet),
-      medicalNeeds: householdForm.medicalNeeds.split(',').map(need => need.trim()).filter(need => need)
+      medical_needs: householdForm.medicalNeeds.split(',').map(need => need.trim()).filter(need => need),
+      location: householdForm.location,
+      zip_code: householdForm.zip_code,
     };
     
-    updateHousehold(updatedHousehold);
-    setIsEditingHousehold(false);
-    toast.success('Household information updated successfully');
+    const { success, error } = await updateUserProfile(updatedHouseholdData);
+
+    if (success) {
+      setIsEditingHousehold(false);
+      toast.success('Household information updated successfully');
+    } else {
+      toast.error(`Failed to update household information: ${error}`);
+    }
   };
 
   const resetHouseholdForm = () => {
-    setHouseholdForm({
-      size: household.size,
-      pets: household.pets.join(', '),
-      medicalNeeds: household.medicalNeeds.join(', ')
-    });
+    if (profile) {
+      setHouseholdForm({
+        size: profile.household_size || 1,
+        pets: profile.pets?.join(', ') || '',
+        medicalNeeds: profile.medical_needs?.join(', ') || '',
+        location: profile.location || { lat: 0, lng: 0 },
+        zip_code: profile.zip_code || '',
+      });
+    }
     setIsEditingHousehold(false);
   };
 
-  const handleDeleteContact = (contactId: number) => {
-    const updatedContacts = emergencyContacts.filter(contact => contact.id !== contactId);
-    setEmergencyContacts(updatedContacts);
-    localStorage.setItem('emergencyContacts', JSON.stringify(updatedContacts));
-    toast.success('Emergency contact deleted successfully');
+  const handleDeleteContact = async (contactId: string) => {
+    const { error } = await supabase
+      .from('user_contacts')
+      .delete()
+      .eq('id', contactId);
+
+    if (error) {
+      toast.error(`Failed to delete contact: ${error.message}`);
+    } else {
+      setEmergencyContacts(prev => prev.filter(contact => contact.id !== contactId));
+      toast.success('Emergency contact deleted successfully');
+    }
   };
   
-  const handleLogout = () => {
-    toast.info("This would log you out in a real app");
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error(`Logout failed: ${error.message}`);
+    } else {
+      toast.info("You have been logged out.");
+      navigate('/login');
+    }
   };
+
+  if (authLoading || !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-20">
+        <motion.div 
+          className="bg-white px-5 py-4 shadow-sm"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h1 className="text-2xl font-bold">Profile & Settings</h1>
+          <p className="text-sm text-gray-500 mt-1">Loading your profile...</p>
+        </motion.div>
+        <div className="px-5 py-4 space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+        <BottomNavigation />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -246,8 +329,8 @@ const Profile = () => {
             <User size={30} className="text-gray-600" />
           </div>
           <div>
-            <h2 className="font-semibold text-lg">{userProfile.name}</h2>
-            <p className="text-sm text-gray-600">{userProfile.email}</p>
+            <h2 className="font-semibold text-lg">{profile.full_name || 'N/A'}</h2>
+            <p className="text-sm text-gray-600">{profile.username}</p>
             <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
               <DialogTrigger asChild>
                 <Button 
@@ -267,8 +350,8 @@ const Profile = () => {
                     <Label htmlFor="profile-name">Full Name</Label>
                     <Input
                       id="profile-name"
-                      value={profileForm.name}
-                      onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                      value={profileForm.full_name}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, full_name: e.target.value }))}
                       placeholder="Your full name"
                     />
                   </div>
@@ -315,7 +398,7 @@ const Profile = () => {
                 </Label>
                 <Input 
                   id="household-size" 
-                  value={household.size} 
+                  value={profile.household_size || 1} 
                   readOnly 
                   className="bg-gray-50" 
                 />
@@ -343,7 +426,7 @@ const Profile = () => {
               </Label>
               <Input 
                 id="pets" 
-                value={household.pets.length > 0 ? household.pets.join(', ') : 'None'} 
+                value={profile.pets?.length > 0 ? profile.pets.join(', ') : 'None'} 
                 readOnly 
                 className="bg-gray-50" 
               />
@@ -355,7 +438,7 @@ const Profile = () => {
               </Label>
               <Input 
                 id="medical-needs" 
-                value={household.medicalNeeds.length > 0 ? household.medicalNeeds.join(', ') : 'None'} 
+                value={profile.medical_needs?.length > 0 ? profile.medical_needs.join(', ') : 'None'} 
                 readOnly 
                 className="bg-gray-50" 
               />

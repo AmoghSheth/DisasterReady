@@ -6,7 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Download, AlertTriangle, Info, CloudLightning, Flame } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useHousehold } from '@/contexts/HouseholdContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getWeatherByZip, getFemaDisastersByState } from '@/utils/externalData';
 
@@ -50,7 +52,8 @@ const basePlans: Plan = {
 };
 
 const Plan = () => {
-  const { household, updateSupply } = useHousehold();
+  const { household: householdSupplies, updateSupply } = useHousehold();
+  const { profile, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan>(basePlans);
   const [weatherAlerts, setWeatherAlerts] = useState<any[]>([]);
   const [femaDisasters, setFemaDisasters] = useState<any[]>([]);
@@ -58,7 +61,9 @@ const Plan = () => {
   
   useEffect(() => {
     const fetchAlertsAndData = async () => {
-      const zip = localStorage.getItem('userZipCode');
+      if (authLoading || !profile) return;
+
+      const zip = profile.zip_code;
       if (!zip) return;
       try {
         const weatherData = await getWeatherByZip(zip);
@@ -84,26 +89,31 @@ const Plan = () => {
       }
     };
     fetchAlertsAndData();
-  }, []);
+  }, [authLoading, profile]);
   
   useEffect(() => {
+    if (!profile) return;
+
     const customizedPlans = { ...basePlans };
+    const householdSize = profile.household_size || 1;
+    const pets = profile.pets || [];
+    const medicalNeeds = profile.medical_needs || [];
     
     Object.keys(customizedPlans).forEach(disasterType => {
       customizedPlans[disasterType] = customizedPlans[disasterType].map(item => ({
         ...item,
-        quantity: item.baseQuantity * household.size
+        quantity: item.baseQuantity * householdSize
       }));
     });
     
-    if (household.pets.length > 0) {
-      const petKit = { id: 'petkit', title: `Prepare emergency kit for ${household.pets.join(', ')}`, baseQuantity: 1, quantity: 1 };
+    if (pets.length > 0) {
+      const petKit = { id: 'petkit', title: `Prepare emergency kit for ${pets.join(', ')}`, baseQuantity: 1, quantity: 1 };
       Object.keys(customizedPlans).forEach(disasterType => {
         customizedPlans[disasterType].push(petKit);
       });
     }
     
-    if (household.medicalNeeds.length > 0) {
+    if (medicalNeeds.length > 0) {
       const medicalKit = { id: 'medkit', title: 'Prepare 7-day supply of essential medications', baseQuantity: 1, quantity: 1 };
       Object.keys(customizedPlans).forEach(disasterType => {
         customizedPlans[disasterType].push(medicalKit);
@@ -111,12 +121,12 @@ const Plan = () => {
     }
     
     setPlans(customizedPlans);
-  }, [household]);
+  }, [profile]);
   
   const toggleItemCompletion = (disasterType: keyof typeof plans, itemId: string) => {
     const item = plans[disasterType].find(item => item.id === itemId);
     if (item) {
-      const currentStatus = household.supplies[itemId]?.completed || false;
+      const currentStatus = householdSupplies.supplies[itemId]?.completed || false;
       const quantity = item.quantity || item.baseQuantity;
       updateSupply(itemId, quantity, !currentStatus);
       toast.success(currentStatus ? 'Marked as incomplete' : 'Marked as complete');
@@ -128,7 +138,7 @@ const Plan = () => {
     if (totalItems === 0) return 0;
     
     const completedItems = plans[disasterType].filter(item => 
-      household.supplies[item.id]?.completed
+      householdSupplies.supplies[item.id]?.completed
     ).length;
     
     return (completedItems / totalItems) * 100;
@@ -152,6 +162,28 @@ const Plan = () => {
   };
 
   const highlightedItems = getHighlightedItems();
+
+  if (authLoading || !profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-20">
+        <motion.div 
+          className="bg-white px-5 py-4 shadow-sm"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h1 className="text-2xl font-bold">Your Preparedness Plan</h1>
+          <p className="text-sm text-gray-500 mt-1">Loading your personalized plan...</p>
+        </motion.div>
+        <div className="px-5 py-4 space-y-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+        <BottomNavigation />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -217,7 +249,7 @@ const Plan = () => {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-medium">Your Progress</span>
                     <span className="text-sm text-gray-500">
-                      {plans[disasterType].filter(item => household.supplies[item.id]?.completed).length} / {plans[disasterType].length} complete
+                      {plans[disasterType].filter(item => householdSupplies.supplies[item.id]?.completed).length} / {plans[disasterType].length} complete
                     </span>
                   </div>
                   <Progress value={calculateProgress(disasterType)} className="h-2" />
@@ -232,7 +264,7 @@ const Plan = () => {
                     <PreparednessPlanCard
                       key={item.id}
                       title={item.title}
-                      isCompleted={household.supplies[item.id]?.completed || false}
+                      isCompleted={householdSupplies.supplies[item.id]?.completed || false}
                       onClick={() => toggleItemCompletion(disasterType, item.id)}
                       quantity={item.quantity}
                       highlight={highlightedItems.includes(item.id)}
@@ -243,7 +275,7 @@ const Plan = () => {
                 <div className="bg-white rounded-xl shadow-sm p-5 mt-6">
                   <h2 className="font-medium mb-2">Downloadable Supply List</h2>
                   <p className="text-sm text-gray-600 mb-4">
-                    Based on your household size ({household.size} people) and needs.
+                    Based on your household size ({profile.household_size || 1} people) and needs.
                   </p>
                   <Button
                     variant="outline"
