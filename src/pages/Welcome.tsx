@@ -205,7 +205,7 @@ const Welcome = () => {
             </motion.p>
           </motion.div>
 
-          {/* Button - with enhanced animations */}
+          {/* Buttons - with enhanced animations */}
           <motion.div
             className="relative w-[95%] mb-[4vh] mt-[3vh]"
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
@@ -221,52 +221,65 @@ const Welcome = () => {
                 damping: 15 
               }
             } : { opacity: 0, y: 50, scale: 0.9 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
           >
-            <motion.div 
-              className="absolute inset-0 bg-white/10 rounded-full blur-lg -z-10"
-              animate={{ 
-                opacity: [0.5, 0.8, 0.5],
-                scale: [1, 1.05, 1],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            />
-            <AnimatedButton 
-              onClick={handleGetStarted} 
-              variant="gradient" 
-              className="text-2xl sm:text-3xl px-12 py-6 sm:py-7 font-medium rounded-full shadow-lg w-full"
-              icon={<ArrowRight size={28} className="sm:w-8 sm:h-8" />}
+            {/* First Button */}
+            <motion.div
+              className="relative mb-10"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
             >
-              Get Started
-            </AnimatedButton>
+              <motion.div 
+                className="absolute inset-0 bg-white/10 rounded-full blur-lg -z-10"
+                animate={{ 
+                  opacity: [0.5, 0.8, 0.5],
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+              <AnimatedButton 
+                onClick={handleGetStarted} 
+                variant="gradient" 
+                className="text-2xl sm:text-3xl px-12 py-6 sm:py-7 font-medium rounded-full shadow-lg w-full"
+                icon={<ArrowRight size={28} className="sm:w-8 sm:h-8" />}
+              >
+                Get Started
+              </AnimatedButton>
+            </motion.div>
+
+            {/* Second Button */}
+            <motion.div
+              className="relative mt-16"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <motion.div 
+                className="absolute inset-0 bg-white/10 rounded-full blur-lg -z-10"
+                animate={{ 
+                  opacity: [0.5, 0.8, 0.5],
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+              <AnimatedButton 
+                onClick={handleLogin} 
+                variant="gradient" 
+                className="text-2xl sm:text-3xl px-12 py-6 sm:py-7 font-medium rounded-full shadow-lg w-full"
+                icon={<ArrowRight size={28} className="sm:w-8 sm:h-8" />}
+              >
+                Log In
+              </AnimatedButton>
+            </motion.div>
           </motion.div>
 
-          {/* Login Button */}
-          <motion.div
-            className="w-[95%] mt-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={animationComplete ? { 
-              opacity: 1, 
-              y: 0,
-              transition: { 
-                delay: 1.4,
-                duration: 0.5
-              }
-            } : { opacity: 0, y: 20 }}
-          >
-            <Button
-              onClick={handleLogin}
-              variant="outline"
-              className="w-full text-white border-white/30 hover:bg-white/10 hover:border-white/50 py-3 text-lg font-medium rounded-full transition-all duration-200"
-            >
-              Already have an account? Sign In
-            </Button>
-          </motion.div>
+
         </motion.div>
       </div>
     </GradientBackground>

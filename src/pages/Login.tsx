@@ -95,7 +95,7 @@ const Login = () => {
         >
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Logo size="md" />
+            <Logo size="md" className="[&_span]:!text-white" />
           </div>
 
           {/* Login Card */}
@@ -154,7 +154,7 @@ const Login = () => {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-3 rounded-lg transition-all duration-200"
+                  className="w-full bg-gradient-to-r from-blue-500 to-green-400 hover:from-blue-600 hover:to-green-500 text-white font-medium py-3 rounded-lg transition-all duration-200"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -195,8 +195,8 @@ const Login = () => {
           >
             <Button
               onClick={handleBack}
-              variant="ghost"
-              className="text-white hover:text-gray-200 hover:bg-white/10"
+              variant="outline"
+              className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:text-white hover:border-white/30 transition-all duration-200"
             >
               <ArrowLeft className="mr-2" size={18} />
               Back to Welcome
