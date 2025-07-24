@@ -9,7 +9,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
-import { getWeatherByLocation, getFemaDisastersByState, getAIAssessment } from '@/utils/externalData';
+import { getWeatherByLocation, getFemaDisastersByState, getAIAssessment, getAI5DayRiskForecast } from '@/utils/externalData';
 import { Card, CardContent } from '@/components/ui/card';
 import RiskAssessmentCard from '@/components/RiskAssessmentCard';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -39,6 +39,7 @@ const Dashboard = () => {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [femaDisasters, setFemaDisasters] = useState<any[]>([]);
   const [riskAssessment, setRiskAssessment] = useState<any>(null);
+  const [fiveDayRiskForecast, setFiveDayRiskForecast] = useState<any[]>([]);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,33 +48,35 @@ const Dashboard = () => {
   const { unreadCount, addNotification } = useNotifications();
   const { profile, loading: authLoading } = useAuth();
 
-  console.log('[Dashboard Page] Rendering with auth state:', { profile, authLoading });
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   const fetchData = useCallback(async () => {
-    console.log('[Dashboard Page] fetchData called.');
     if (!profile?.location) {
-      console.log('[Dashboard Page] fetchData: No profile location, returning.');
-      if (!authLoading && profile && !profile.location) {
-        console.log('[Dashboard Page] Profile exists but location is missing, redirecting to setup.');
-        navigate('/location-setup');
-      }
       return;
     }
 
-    console.log('[Dashboard Page] fetchData: Profile location found, fetching data.');
     setIsDataLoading(true);
     setError(null);
     try {
       const weatherData = await getWeatherByLocation(profile.location);
-      console.log('[Dashboard Page] fetchData: Weather data received.', weatherData);
       setWeather(weatherData.weather);
       setForecast(weatherData.forecast);
       setAlerts(weatherData.alerts);
+
+      // Sequentially fetch AI assessments to avoid rate limiting
+      const assessment = await getAIAssessment(weatherData);
+      setRiskAssessment(assessment);
+
+      if (weatherData.forecast && weatherData.forecast.length > 0) {
+        const aiForecast = await getAI5DayRiskForecast(weatherData.forecast);
+        console.log('[Dashboard] Received AI 5-day forecast data:', aiForecast);
+        if (aiForecast && aiForecast.daily_risks) {
+          setFiveDayRiskForecast(aiForecast.daily_risks);
+        }
+      }
 
       if (weatherData.alerts && weatherData.alerts.length > 0) {
         weatherData.alerts.forEach((alert: any) => {
@@ -87,13 +90,8 @@ const Dashboard = () => {
         });
       }
 
-      const assessment = await getAIAssessment(weatherData);
-      console.log('[Dashboard Page] fetchData: AI assessment received.', assessment);
-      setRiskAssessment(assessment);
-
       if (weatherData.geo && weatherData.geo.state) {
         const fema = await getFemaDisastersByState(weatherData.geo.state);
-        console.log('[Dashboard Page] fetchData: FEMA disasters received.', fema);
         setFemaDisasters(fema);
         
         if (fema && fema.length > 0) {
@@ -111,18 +109,13 @@ const Dashboard = () => {
       console.error("[Dashboard Page] Failed to fetch dashboard data:", err);
       setError("We couldn't load the latest data. Please try again in a few moments.");
     } finally {
-      console.log('[Dashboard Page] fetchData: Finished, setting data loading to false.');
       setIsDataLoading(false);
     }
   }, [profile, authLoading, addNotification, navigate]);
 
   useEffect(() => {
-    console.log('[Dashboard Page] useEffect for fetching data triggered:', { authLoading, profile });
     if (!authLoading && profile) {
-      console.log('[Dashboard Page] Conditions met, calling fetchData.');
       fetchData();
-    } else {
-      console.log('[Dashboard Page] Conditions not met for fetching data.');
     }
   }, [profile, authLoading, fetchData]);
 
@@ -226,11 +219,11 @@ const Dashboard = () => {
           </Card>
         )}
         
-        {forecast && forecast.length > 0 && (
+        {fiveDayRiskForecast.length > 0 && (
           <Card className="card-effect mb-6 p-4">
-            <h2 className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> 7-Day Risk Forecast</h2>
+            <h2 className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> 5-Day AI Risk Forecast</h2>
             <ResponsiveContainer width="100%" height={120}>
-              <AreaChart data={getRiskFromForecast(forecast)}>
+              <AreaChart data={fiveDayRiskForecast.map(d => ({ ...d, date: new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' }) }))}>
                 <defs>
                   <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--destructive)" stopOpacity={0.8}/>
@@ -243,8 +236,10 @@ const Dashboard = () => {
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
-                    borderColor: 'hsl(var(--border))',
+                    borderColor: 'hsl(var(--border))'
                   }}
+                  labelFormatter={(label) => `Date: ${label}`}
+                  formatter={(value, name, props) => [`${value}%`, `Risk: ${props.payload.justification}`]}
                 />
                 <Area type="monotone" dataKey="risk" stroke="hsl(var(--primary))" fill="url(#riskGradient)" />
               </AreaChart>

@@ -81,7 +81,6 @@ export async function getNwsAlertsByLatLon(lat: number, lon: number) {
 export async function getAIAssessment(weatherData: any) {
   const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
-    console.error("Gemini API key not found or is a placeholder. Please check your .env file.");
     return null;
   }
 
@@ -133,6 +132,87 @@ if (match && match[1]) {
     return JSON.parse(content);
   } catch (error) {
     console.error('Error fetching or parsing AI assessment:', error);
+    return null;
+  }
+}
+
+export async function getAI5DayRiskForecast(forecastData: any[]) {
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+    return null;
+  }
+
+  // Process the 3-hour forecast into daily summaries
+  const dailySummaries = forecastData.reduce((acc, item) => {
+    const date = new Date(item.dt * 1000).toISOString().split('T')[0];
+    if (!acc[date]) {
+      acc[date] = {
+        temps: [],
+        conditions: [],
+        wind: [],
+      };
+    }
+    acc[date].temps.push(item.main.temp);
+    acc[date].conditions.push(item.weather[0].description);
+    acc[date].wind.push(item.wind.speed);
+    return acc;
+  }, {});
+
+  const processedForecast = Object.entries(dailySummaries).map(([date, data]: [string, any]) => ({
+    date,
+    temp_max: Math.max(...data.temps),
+    temp_min: Math.min(...data.temps),
+    conditions: [...new Set(data.conditions)].join(', '),
+    wind_speed_max: Math.max(...data.wind),
+  }));
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+  const prompt = `
+    Analyze the following 5-day weather forecast summary. For each day, provide a risk score from 0 (minimal risk) to 100 (severe risk) based on potential for hazardous conditions (e.g., storms, extreme temperatures, high winds).
+
+    Forecast Data:
+    ${JSON.stringify(processedForecast.slice(0, 5))}
+
+    Return ONLY a raw JSON object (no markdown) with the key "daily_risks", which is an array. Each object in the array should have three keys:
+    1. "date" (in YYYY-MM-DD format)
+    2. "risk" (an integer from 0 to 100)
+    3. "justification" (a very brief explanation for the score)
+
+    Example format:
+    {
+      "daily_risks": [
+        { "date": "2025-07-25", "risk": 15, "justification": "Clear skies, mild wind." },
+        { "date": "2025-07-26", "risk": 75, "justification": "Thunderstorms and high wind." }
+      ]
+    }
+  `;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[Gemini API] Raw response for 5-day forecast:', data);
+    let content = data.candidates[0].content.parts[0].text;
+
+    // Strip markdown code block if present
+    const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
+    const match = content.match(jsonRegex);
+    if (match && match[1]) {
+      content = match[1];
+    }
+
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('Error fetching or parsing AI 5-day forecast:', error);
     return null;
   }
 }

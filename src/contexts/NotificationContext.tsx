@@ -26,19 +26,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     try {
       const saved = localStorage.getItem('notifications');
-      if (!saved) return [];
-      
-      const parsed = JSON.parse(saved);
-      if (!Array.isArray(parsed)) return [];
-      
-      return parsed.map((n: any) => ({
-        ...n,
-        timestamp: new Date(n.timestamp)
-      }));
+      return saved ? JSON.parse(saved).map((n: any) => ({ ...n, timestamp: new Date(n.timestamp) })) : [];
     } catch (error) {
-      console.error('Error loading notifications from localStorage:', error);
-      // Clear corrupted data
-      localStorage.removeItem('notifications');
       return [];
     }
   });
