@@ -8,7 +8,7 @@ import { MapPin, ArrowRight, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
 import { useGoogleMaps } from '@/hooks/useGoogleMaps';
-import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 type LocationCoords = {
   lat: number;
@@ -22,6 +22,7 @@ const LocationSetup = () => {
   const [isDetecting, setIsDetecting] = useState(false);
   const navigate = useNavigate();
   const { getCurrentLocation } = useGoogleMaps();
+  const { updateUserProfile } = useAuth();
 
   const handleUseGPS = async () => {
     setIsDetecting(true);
@@ -53,16 +54,13 @@ const LocationSetup = () => {
 
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          zip_code: zipCode,
-          location: location,
-        })
-        .eq('username', (await supabase.auth.getUser()).data.user?.email);
+      const result = await updateUserProfile({
+        zip_code: zipCode,
+        location: location,
+      });
 
-      if (error) {
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save location');
       }
       
       toast.success("Location saved successfully!");

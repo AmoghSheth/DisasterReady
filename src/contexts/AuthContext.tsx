@@ -1,138 +1,95 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabaseClient';
-
-// Define the structure of our user profile data
-export interface UserProfile {
-  username: string;
-  full_name?: string;
-  zip_code?: string;
-  household_size?: number;
-  pets?: string[];
-  medical_needs?: string[];
-  location?: { lat: number; lng: number };
-}
+import * as localAuth from '@/lib/localAuth';
+import type { LocalUser, UserProfile } from '@/lib/localAuth';
 
 type AuthContextType = {
-  session: Session | null;
-  user: User | null;
+  user: LocalUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, fullName: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType>({
-  session: null,
   user: null,
   profile: null,
   loading: true,
+  login: async () => ({ success: false, error: "Function not implemented." }),
+  register: async () => ({ success: false, error: "Function not implemented." }),
+  logout: () => {},
   updateUserProfile: async () => ({ success: false, error: "Function not implemented." }),
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<LocalUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to update user profile in Supabase
+  // Login function
+  const login = async (email: string, password: string) => {
+    const result = localAuth.login(email, password);
+    if (result.success && result.user) {
+      setUser(result.user);
+      const userProfile = localAuth.getUserProfile(result.user.email);
+      setProfile(userProfile);
+    }
+    return result;
+  };
+
+  // Register function
+  const register = async (email: string, password: string, fullName: string) => {
+    const result = localAuth.register(email, password, fullName);
+    if (result.success && result.user) {
+      setUser(result.user);
+      const userProfile = localAuth.getUserProfile(result.user.email);
+      setProfile(userProfile);
+    }
+    return result;
+  };
+
+  // Logout function
+  const logout = () => {
+    localAuth.logout();
+    setUser(null);
+    setProfile(null);
+  };
+
+  // Function to update user profile
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
     if (!user) {
       return { success: false, error: "No user logged in." };
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('username', user.email)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      setProfile(data); // Update local state with new profile data
-      return { success: true };
-    } catch (error: any) {
-      console.error("Error updating user profile:", error.message);
-      return { success: false, error: error.message };
+    const result = localAuth.updateUserProfile(user.email, updates);
+    if (result.success && result.profile) {
+      setProfile(result.profile);
     }
+    return result;
   };
 
+  // Check for existing session on mount
   useEffect(() => {
     setLoading(true);
-
-    const setData = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        setLoading(false);
-        return;
-      }
-      setSession(session);
-      
-      const currentUser = session?.user;
-      setUser(currentUser ?? null);
-
-      if (currentUser) {
-        const { data, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('username', currentUser.email)
-          .single();
-        
-        if (profileError) {
-          setProfile(null);
-        } else {
-          setProfile(data);
-        }
-      } else {
-        setProfile(null);
-      }
-      
-      setLoading(false);
-    };
-
-    setData();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        const currentUser = session?.user;
-        setUser(currentUser ?? null);
-
-        if (currentUser) {
-          setLoading(true);
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', currentUser.email)
-            .single();
-          
-          if (error) {
-            setProfile(null);
-          } else {
-            setProfile(data);
-          }
-          setLoading(false);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    const currentUser = localAuth.getCurrentUser();
+    
+    if (currentUser) {
+      setUser(currentUser);
+      const userProfile = localAuth.getUserProfile(currentUser.email);
+      setProfile(userProfile);
+    }
+    
+    setLoading(false);
   }, []);
 
   const value = {
-    session,
     user,
     profile,
     loading,
+    login,
+    register,
+    logout,
     updateUserProfile,
   };
 

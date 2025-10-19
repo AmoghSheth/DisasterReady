@@ -14,17 +14,11 @@ import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/lib/supabaseClient';
-
-interface EmergencyContact {
-  id: string;
-  name: string;
-  relation: string;
-  phone: string;
-}
+import * as localContacts from '@/lib/localContacts';
+import type { EmergencyContact } from '@/lib/localContacts';
 
 const Profile = () => {
-  const { profile, loading: authLoading, updateUserProfile } = useAuth();
+  const { profile, loading: authLoading, updateUserProfile, logout } = useAuth();
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
   });
@@ -64,21 +58,12 @@ const Profile = () => {
     }
   }, [profile]);
 
-  // Load emergency contacts from Supabase
+  // Load emergency contacts from local storage
   useEffect(() => {
-    const fetchContacts = async () => {
-      if (!profile?.username) return;
-      const { data, error } = await supabase
-        .from('user_contacts')
-        .select('*')
-        .eq('username', profile.username);
-      if (error) {
-        console.error("Error fetching contacts:", error);
-      } else {
-        setEmergencyContacts(data as EmergencyContact[]);
-      }
-    };
-    fetchContacts();
+    if (profile?.username) {
+      const contacts = localContacts.getUserContacts(profile.username);
+      setEmergencyContacts(contacts);
+    }
   }, [profile]);
 
   // Apply dark mode to document
@@ -114,26 +99,20 @@ const Profile = () => {
       return;
     }
     
-    const newContact = {
-      username: profile.username,
-      name: contactForm.name,
-      relation: contactForm.relation,
-      phone: contactForm.phone
-    };
-    
-    const { data, error } = await supabase
-      .from('user_contacts')
-      .insert(newContact)
-      .select()
-      .single();
-
-    if (error) {
-      toast.error(`Failed to add contact: ${error.message}`);
-    } else {
-      setEmergencyContacts(prev => [...prev, data as EmergencyContact]);
+    try {
+      const newContact = localContacts.addContact(
+        profile.username,
+        contactForm.name,
+        contactForm.relation,
+        contactForm.phone
+      );
+      
+      setEmergencyContacts(prev => [...prev, newContact]);
       setContactForm({ name: '', relation: '', phone: '' });
       setIsAddingContact(false);
       toast.success('Emergency contact added successfully');
+    } catch (error) {
+      toast.error('Failed to add contact');
     }
   };
 
@@ -148,13 +127,15 @@ const Profile = () => {
       return;
     }
     
-    const { error } = await supabase
-      .from('user_contacts')
-      .update({ name: contactForm.name, relation: contactForm.relation, phone: contactForm.phone })
-      .eq('id', editingContact.id);
+    const success = localContacts.updateContact(
+      editingContact.id,
+      contactForm.name,
+      contactForm.relation,
+      contactForm.phone
+    );
 
-    if (error) {
-      toast.error(`Failed to update contact: ${error.message}`);
+    if (!success) {
+      toast.error('Failed to update contact');
     } else {
       setEmergencyContacts(prev => 
         prev.map(contact =>
@@ -259,13 +240,10 @@ const Profile = () => {
   };
 
   const handleDeleteContact = async (contactId: string) => {
-    const { error } = await supabase
-      .from('user_contacts')
-      .delete()
-      .eq('id', contactId);
+    const success = localContacts.deleteContact(contactId);
 
-    if (error) {
-      toast.error(`Failed to delete contact: ${error.message}`);
+    if (!success) {
+      toast.error('Failed to delete contact');
     } else {
       setEmergencyContacts(prev => prev.filter(contact => contact.id !== contactId));
       toast.success('Emergency contact deleted successfully');
@@ -273,13 +251,9 @@ const Profile = () => {
   };
   
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(`Logout failed: ${error.message}`);
-    } else {
-      toast.info("You have been logged out.");
-      navigate('/login');
-    }
+    logout();
+    toast.info("You have been logged out.");
+    navigate('/login');
   };
 
   if (authLoading || !profile) {

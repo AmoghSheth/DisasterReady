@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dog, Cat, Check, Users, Heart, Pill } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from "sonner";
-import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
 
 const HouseholdSetup = () => {
   const [householdSize, setHouseholdSize] = useState('');
@@ -16,6 +16,7 @@ const HouseholdSetup = () => {
   const [pets, setPets] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
+  const { updateUserProfile } = useAuth();
 
   const medicalNeedOptions = [
     { id: 'medications', label: 'Medications', icon: <Pill className="w-4 h-4" /> },
@@ -49,21 +50,18 @@ const HouseholdSetup = () => {
     
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          household_size: parseInt(householdSize),
-          pets: pets, // Save the array directly
-          medical_needs: medicalNeeds, // Save the array directly
-        })
-        .eq('username', (await supabase.auth.getUser()).data.user?.email);
+      const result = await updateUserProfile({
+        household_size: parseInt(householdSize),
+        pets: pets,
+        medical_needs: medicalNeeds,
+      });
 
-      if (error) {
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save household info');
       }
 
       toast.success("Setup complete! Welcome to your dashboard.");
-      navigate('/'); // Navigate to dashboard
+      navigate('/dashboard');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';
       toast.error(`Failed to save household info: ${errorMessage}`);

@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabaseClient';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -10,6 +9,7 @@ import { toast } from 'sonner';
 import { ArrowRight, ArrowLeft, User, Mail, Lock } from 'lucide-react';
 import GradientBackground from '@/components/GradientBackground';
 import Logo from '@/components/Logo';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -20,6 +20,7 @@ const Register = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { register: registerUser } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -61,34 +62,22 @@ const Register = () => {
     setIsLoading(true);
     
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      });
+      const result = await registerUser(
+        formData.email,
+        formData.password,
+        formData.name
+      );
 
-      if (authError) {
-        throw new Error(authError.message);
+      if (!result.success) {
+        throw new Error(result.error || 'Registration failed');
       }
 
-      if (authData.user) {
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            username: authData.user.email,
-            full_name: formData.name,
-          });
-
-        if (insertError) {
-          throw new Error(insertError.message);
-        }
-        
-        toast.success('Account created successfully!');
-        
-        // Navigate to location setup
-        setTimeout(() => {
-          navigate('/location-setup');
-        }, 1000);
-      }
+      toast.success('Account created successfully!');
+      
+      // Navigate to location setup
+      setTimeout(() => {
+        navigate('/location-setup');
+      }, 1000);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred.';

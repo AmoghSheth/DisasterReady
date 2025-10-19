@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabaseClient';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -19,17 +18,13 @@ const Login = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { user, profile, loading, login: loginUser } = useAuth();
 
   useEffect(() => {
-    console.log('[Login Page] Auth state change:', { session, profile, loading });
-    if (session && profile) {
-      console.log('[Login Page] Session and profile found, navigating to dashboard.');
+    if (user && profile) {
       navigate('/dashboard');
-    } else {
-      console.log('[Login Page] Waiting for session and/or profile.');
     }
-  }, [session, profile, loading, navigate]);
+  }, [user, profile, loading, navigate]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -59,13 +54,13 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      const result = await loginUser(
+        formData.email,
+        formData.password
+      );
 
-      if (error) {
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error || 'Login failed');
       }
 
       toast.success('Login successful!');
