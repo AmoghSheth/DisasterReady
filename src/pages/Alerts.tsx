@@ -6,14 +6,13 @@ import AlertCard from '@/components/AlertCard';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, AlertTriangle, Flame, ServerCrash, Info } from 'lucide-react';
-import { getWeatherByZip, getFemaDisastersByState, getNwsAlertsByLatLon } from '@/utils/externalData';
+import { getWeatherByZip, getAllAlerts } from '@/utils/externalData';
 import { useAuth } from '@/contexts/AuthContext';
-import { useGoogleMapsContext } from '@/contexts/GoogleMapsContext';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const Alerts = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [weatherAlerts, setWeatherAlerts] = useState<any[]>([]);
+  const [openWeatherMapAlerts, setOpenWeatherMapAlerts] = useState<any[]>([]);
   const [femaDisasters, setFemaDisasters] = useState<any[]>([]);
   const [nwsAlerts, setNwsAlerts] = useState<any[]>([]);
   const [filterType, setFilterType] = useState('all');
@@ -21,11 +20,11 @@ const Alerts = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { profile, loading: authLoading } = useAuth();
-  const { mapsService, isLoaded } = useGoogleMapsContext();
+  
 
   useEffect(() => {
     const fetchAllAlerts = async () => {
-      if (authLoading || !profile || !isLoaded || !mapsService) return;
+      if (authLoading || !profile) return;
 
       setIsLoading(true);
       setErrors({});
@@ -39,42 +38,27 @@ const Alerts = () => {
       try {
         const { lat, lng } = profile.location;
 
+        // Get state for FEMA
         let state = null;
         try {
-          const geoData = await mapsService.reverseGeocode({ lat, lng });
-          state = geoData?.state;
-        } catch (geoError) {
-          console.error("Reverse geocoding error:", geoError);
-          setErrors(prev => ({ ...prev, geocoding: 'Could not determine state from location.' }));
+          const weatherData = await getWeatherByZip(profile.zip_code);
+          state = weatherData.geo?.state || null;
+        } catch (e) {
+          console.error('Could not get state from weather data:', e);
         }
 
-        const results = await Promise.allSettled([
-          getWeatherByZip(profile.zip_code),
-          state ? getFemaDisastersByState(state) : Promise.resolve([]),
-          getNwsAlertsByLatLon(lat, lng)
-        ]);
+        // Fetch all alerts from all three sources
+        const allAlertsData = await getAllAlerts(profile.zip_code, lat, lng, state);
+        
+        console.log('All alerts data:', allAlertsData);
+        
+        setOpenWeatherMapAlerts(allAlertsData.openWeatherMap || []);
+        setNwsAlerts(allAlertsData.nws || []);
+        setFemaDisasters(allAlertsData.fema || []);
 
-        const [owmResult, femaResult, nwsResult] = results;
-
-        if (owmResult.status === 'fulfilled') {
-          setWeatherAlerts(owmResult.value.alerts || []);
-        } else {
-          console.error("OpenWeatherMap Error:", owmResult.reason);
-          setErrors(prev => ({ ...prev, weather: 'Could not load weather alerts.' }));
-        }
-
-        if (femaResult.status === 'fulfilled') {
-          setFemaDisasters(femaResult.value);
-        } else {
-          console.error("FEMA Error:", femaResult.reason);
-          setErrors(prev => ({ ...prev, fema: 'Could not load FEMA disasters.' }));
-        }
-
-        if (nwsResult.status === 'fulfilled') {
-          setNwsAlerts(nwsResult.value);
-        } else {
-          console.error("NWS Error:", nwsResult.reason);
-          setErrors(prev => ({ ...prev, nws: 'Could not load NWS alerts.' }));
+        // Track which sources had errors
+        if (allAlertsData.openWeatherMap.length === 0 && allAlertsData.nws.length === 0 && allAlertsData.fema.length === 0) {
+          console.warn('No alerts found from any source');
         }
 
       } catch (e: any) {
@@ -86,42 +70,53 @@ const Alerts = () => {
     };
 
     fetchAllAlerts();
-  }, [authLoading, profile, isLoaded, mapsService]);
+  }, [authLoading, profile]);
 
-  const allAlerts = useMemo(() => [
-    ...weatherAlerts.map((a, i) => ({
-      id: `weather-${i}`,
-      title: a.event,
+  const allAlerts = useMemo(() => {
+    const fromOpenWeatherMap = (openWeatherMapAlerts || []).map((a: any) => ({
+      event: a.event,
       description: a.description,
-      timestamp: new Date(a.start * 1000),
-      severity: a.severity?.toLowerCase() || 'medium',
+      start: a.start,
+      end: a.end,
+      severity: a.severity || 'moderate',
+      sender_name: a.sender || 'OpenWeatherMap',
       type: a.event?.toLowerCase().includes('flood') ? 'flood' : a.event?.toLowerCase().includes('fire') ? 'wildfire' : a.event?.toLowerCase().includes('storm') ? 'storm' : 'general',
-      icon: <AlertTriangle className="text-red-400" />
-    })),
-    ...femaDisasters.map((d, i) => ({
-      id: `fema-${i}`,
-      title: d.incidentType,
-      description: d.declarationTitle,
-      timestamp: new Date(d.declarationDate),
-      severity: 'high',
-      type: d.incidentType?.toLowerCase().includes('flood') ? 'flood' : d.incidentType?.toLowerCase().includes('fire') ? 'wildfire' : d.incidentType?.toLowerCase().includes('storm') ? 'storm' : 'general',
-      icon: <Flame className="text-orange-400" />
-    })),
-    ...nwsAlerts.map((a, i) => ({
-      id: `nws-${a.id || i}`,
-      title: a.event,
+      sort_ts: a.start || 0,
+    }));
+
+    const fromFema = (femaDisasters || []).map((d: any) => {
+      const startTs = d.declarationDate ? Math.floor(new Date(d.declarationDate).getTime() / 1000) : Math.floor(Date.now() / 1000);
+      return {
+        event: d.incidentType || 'FEMA Disaster',
+        description: d.declarationTitle || 'Federal disaster declaration in your area',
+        start: startTs,
+        end: startTs + 86400,
+        severity: 'severe',
+        sender_name: 'FEMA',
+        type: d.incidentType?.toLowerCase().includes('flood') ? 'flood' : d.incidentType?.toLowerCase().includes('fire') ? 'wildfire' : d.incidentType?.toLowerCase().includes('storm') ? 'storm' : 'general',
+        sort_ts: startTs,
+      };
+    });
+
+    const fromNws = (nwsAlerts || []).map((a: any) => ({
+      event: a.event,
       description: a.description,
-      timestamp: new Date(a.start * 1000),
-      severity: a.severity?.toLowerCase() || 'medium',
+      start: a.start,
+      end: a.end,
+      severity: a.severity || 'moderate',
+      sender_name: a.sender || 'NWS',
       type: a.event?.toLowerCase().includes('flood') ? 'flood' : a.event?.toLowerCase().includes('fire') ? 'wildfire' : a.event?.toLowerCase().includes('storm') ? 'storm' : 'general',
-      icon: <AlertTriangle className="text-blue-400" />
-    }))
-  ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()), [weatherAlerts, femaDisasters, nwsAlerts]);
+      sort_ts: a.start || 0,
+    }));
+
+    return [...fromOpenWeatherMap, ...fromFema, ...fromNws]
+      .sort((a, b) => (b.sort_ts || 0) - (a.sort_ts || 0));
+  }, [openWeatherMapAlerts, femaDisasters, nwsAlerts]);
 
   const filteredAlerts = useMemo(() => allAlerts.filter(alert => {
     if (searchQuery && !(
-      alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alert.description.toLowerCase().includes(searchQuery.toLowerCase())
+      (alert.event || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (alert.description || '').toLowerCase().includes(searchQuery.toLowerCase())
     )) return false;
     if (filterType !== 'all' && alert.type !== filterType) return false;
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false;
@@ -145,8 +140,9 @@ const Alerts = () => {
       return (
         <div className="text-center py-8 text-gray-500">
           <Info className="mx-auto h-12 w-12 mb-4 text-blue-500" />
-          <p className="font-semibold">No Active Alerts</p>
-          <p>There are currently no alerts for your area.</p>
+          <p className="font-semibold">No Alerts Found</p>
+          <p>No active or recent alerts for your area (past 7 days).</p>
+          <p className="text-sm mt-2">This is good news! Your area is currently safe.</p>
         </div>
       );
     }
@@ -164,7 +160,17 @@ const Alerts = () => {
           </div>
         )}
         {filteredAlerts.length > 0 ? (
-          filteredAlerts.map(alert => <AlertCard key={alert.id} {...alert} />)
+          filteredAlerts.map((alert, i) => (
+            <AlertCard
+              key={i}
+              event={alert.event}
+              start={alert.start}
+              end={alert.end}
+              description={alert.description}
+              severity={alert.severity}
+              sender_name={alert.sender_name}
+            />
+          ))
         ) : (
           <div className="text-center py-8 text-red-500">
             <ServerCrash className="mx-auto h-12 w-12 mb-4" />
@@ -188,7 +194,7 @@ const Alerts = () => {
         <p className="text-sm text-gray-500 mt-1">Live & historical alerts for your area</p>
       </motion.div>
       
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 max-w-5xl mx-auto">
         <div className="flex gap-2 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />

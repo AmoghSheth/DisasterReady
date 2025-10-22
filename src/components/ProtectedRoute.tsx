@@ -3,13 +3,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import GradientBackground from './GradientBackground';
 
 const ProtectedRoute = () => {
-  const { session, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return <GradientBackground><div className="flex items-center justify-center h-screen text-white">Loading...</div></GradientBackground>;
   }
 
-  if (!session) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 

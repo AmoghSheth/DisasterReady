@@ -100,6 +100,6 @@ export const generateRiskAssessment = (
     level: 'low',
     message: 'No immediate threats detected. A great time to review your plan!',
     recommendation: 'Check your emergency kit supplies and ensure your contact list is up to date.',
-    source: 'System Analysis'
+    source: 'Weather Data Analysis'
   };
 };

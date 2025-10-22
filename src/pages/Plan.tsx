@@ -229,7 +229,7 @@ const Plan = () => {
         </motion.div>
       )}
       
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 max-w-5xl mx-auto">
         <Tabs defaultValue="earthquake" className="w-full" onValueChange={setActiveTab}>
           <TabsList className="w-full mb-4 grid grid-cols-4">
             <TabsTrigger value="earthquake">Earthquake</TabsTrigger>

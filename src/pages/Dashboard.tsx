@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
 import { getWeatherByLocation, getFemaDisastersByState, getAIAssessment, getAI5DayRiskForecast } from '@/utils/externalData';
+import { generateRiskAssessment } from '@/utils/riskAssessment';
 import { Card, CardContent } from '@/components/ui/card';
 import RiskAssessmentCard from '@/components/RiskAssessmentCard';
 import { useNotifications } from '@/contexts/NotificationContext';
@@ -67,8 +68,30 @@ const Dashboard = () => {
       setAlerts(weatherData.alerts);
 
       // Sequentially fetch AI assessments to avoid rate limiting
+      console.log('[Dashboard] Attempting to get AI risk assessment from Gemini...');
       const assessment = await getAIAssessment(weatherData);
-      setRiskAssessment(assessment);
+      
+      if (assessment) {
+        console.log('[Dashboard] ✅ AI assessment received from Gemini:', assessment);
+        console.log('[Dashboard] Source:', assessment.source);
+        setRiskAssessment(assessment);
+      } else {
+        console.log('[Dashboard] ⚠️ AI assessment failed, falling back to local risk assessment');
+        // Fallback to local risk assessment
+        const today = weatherData.forecast && weatherData.forecast.length > 0 ? weatherData.forecast[0] : null;
+        const fallback = generateRiskAssessment(
+          weatherData.alerts || [],
+          today
+            ? [{
+                weather: [{ main: today.weather?.[0]?.main || '', description: today.weather?.[0]?.description || '' }],
+                temp: { day: today.main?.temp || weatherData.weather?.main?.temp || 70 },
+                wind_speed: today.wind?.speed || weatherData.weather?.wind?.speed || 0,
+              }]
+            : []
+        );
+        console.log('[Dashboard] Local fallback assessment:', fallback);
+        setRiskAssessment(fallback);
+      }
 
       if (weatherData.forecast && weatherData.forecast.length > 0) {
         const aiForecast = await getAI5DayRiskForecast(weatherData.forecast);
@@ -181,7 +204,7 @@ const Dashboard = () => {
 
     console.log('[Dashboard Page] Rendering: Main content.');
     return (
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 max-w-5xl mx-auto">
         <motion.div
           className="mb-6 flex items-center"
           initial={{ opacity: 0 }}
@@ -197,23 +220,93 @@ const Dashboard = () => {
         <RiskAssessmentCard assessment={riskAssessment} />
         
         {weather && (
-          <Card className="card-effect mb-6 p-4 flex flex-col gap-2">
+          <Card className="card-effect mb-6 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2 mb-1">
               <Cloud className="text-primary" />
               <span className="font-semibold text-foreground">Today's Weather</span>
               <span className="ml-auto text-sm text-muted-foreground">{weather.weather?.[0]?.main} {Math.round(weather.main?.temp)}°F</span>
             </div>
-            <div className="text-xs text-muted-foreground">{weather.weather?.[0]?.description}</div>
-            {alerts && alerts.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <AlertTriangle className="text-destructive" />
-                <span className="text-destructive font-medium">{alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}</span>
+            
+            {/* Detailed Weather Description */}
+            <div className="text-sm text-foreground bg-muted/50 p-3 rounded-md">
+              <p className="font-medium mb-1 capitalize">{weather.weather?.[0]?.description || 'Clear conditions'}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Current temperature is <strong>{Math.round(weather.main?.temp)}°F</strong>, feeling like <strong>{Math.round(weather.main?.feels_like)}°F</strong>.
+                {weather.main?.humidity && ` Humidity at ${weather.main.humidity}%`}
+                {weather.wind?.speed && ` with winds from ${weather.wind.deg ? `${Math.round(weather.wind.deg)}°` : 'varying directions'} at ${Math.round(weather.wind.speed)} mph`}.
+                {weather.clouds?.all !== undefined && ` Cloud coverage is ${weather.clouds.all}%.`}
+                {weather.visibility && ` Visibility extends to ${(weather.visibility / 1609.34).toFixed(1)} miles.`}
+                {weather.main?.pressure && ` Atmospheric pressure is ${weather.main.pressure} hPa.`}
+              </p>
+            </div>
+
+            {/* Detailed Weather Stats Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+              <div className="bg-muted/30 p-2 rounded">
+                <div className="text-muted-foreground">Feels Like</div>
+                <div className="font-semibold text-foreground text-sm">{Math.round(weather.main?.feels_like)}°F</div>
+              </div>
+              <div className="bg-muted/30 p-2 rounded">
+                <div className="text-muted-foreground">Humidity</div>
+                <div className="font-semibold text-foreground text-sm">{weather.main?.humidity}%</div>
+              </div>
+              <div className="bg-muted/30 p-2 rounded">
+                <div className="text-muted-foreground">Wind Speed</div>
+                <div className="font-semibold text-foreground text-sm">{Math.round(weather.wind?.speed)} mph</div>
+              </div>
+              {forecast && forecast[0]?.pop !== undefined && (
+                <div className="bg-muted/30 p-2 rounded">
+                  <div className="text-muted-foreground">Precip Chance</div>
+                  <div className="font-semibold text-foreground text-sm">{Math.round((forecast[0].pop || 0) * 100)}%</div>
+                </div>
+              )}
+              {weather.main?.pressure && (
+                <div className="bg-muted/30 p-2 rounded">
+                  <div className="text-muted-foreground">Pressure</div>
+                  <div className="font-semibold text-foreground text-sm">{weather.main.pressure} hPa</div>
+                </div>
+              )}
+              {weather.visibility && (
+                <div className="bg-muted/30 p-2 rounded">
+                  <div className="text-muted-foreground">Visibility</div>
+                  <div className="font-semibold text-foreground text-sm">{(weather.visibility / 1609.34).toFixed(1)} mi</div>
+                </div>
+              )}
+              {weather.uvi !== undefined && (
+                <div className="bg-muted/30 p-2 rounded">
+                  <div className="text-muted-foreground">UV Index</div>
+                  <div className="font-semibold text-foreground text-sm">{weather.uvi.toFixed(1)}</div>
+                </div>
+              )}
+              {weather.clouds?.all !== undefined && (
+                <div className="bg-muted/30 p-2 rounded">
+                  <div className="text-muted-foreground">Cloud Cover</div>
+                  <div className="font-semibold text-foreground text-sm">{weather.clouds.all}%</div>
+                </div>
+              )}
+            </div>
+
+            {/* Sunrise/Sunset if available */}
+            {weather.sys?.sunrise && weather.sys?.sunset && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground border-t pt-2">
+                <div>☀️ Sunrise: <span className="font-medium text-foreground">{format(new Date(weather.sys.sunrise * 1000), 'h:mm a')}</span></div>
+                <div>🌙 Sunset: <span className="font-medium text-foreground">{format(new Date(weather.sys.sunset * 1000), 'h:mm a')}</span></div>
               </div>
             )}
+
+            {/* Alerts Section */}
+            {alerts && alerts.length > 0 && (
+              <div className="flex items-center gap-2 mt-1 bg-destructive/10 p-2 rounded">
+                <AlertTriangle className="text-destructive" size={18} />
+                <span className="text-destructive font-medium text-sm">{alerts.length} Active Alert{alerts.length > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            
+            {/* FEMA Disasters */}
             {femaDisasters && femaDisasters.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <Flame className="text-orange-400" />
-                <span className="text-orange-400 font-medium">Recent Disaster: {femaDisasters[0].incidentType}</span>
+              <div className="flex items-center gap-2 mt-1 bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
+                <Flame className="text-orange-500" size={18} />
+                <span className="text-orange-600 dark:text-orange-400 font-medium text-sm">Recent Disaster: {femaDisasters[0].incidentType}</span>
               </div>
             )}
           </Card>

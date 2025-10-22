@@ -226,7 +226,7 @@ const Map = () => {
       </motion.div>
       
       {/* Map View */}
-      <div className="px-5 py-4">
+      <div className="px-5 py-4 max-w-5xl mx-auto">
         <Tabs 
           defaultValue="shelters" 
           className="w-full" 
