@@ -12,7 +12,7 @@ This app now uses **OpenWeather One Call API 3.0** subscription. All API calls h
 ## API Key Configuration
 The API key is stored in `.env` file:
 ```
-VITE_OPENWEATHERMAP_API_KEY=39e9d8d774dcda8559ed485eee5b289d
+OPENWEATHERMAP_API_KEY=your_api_key_here
 ```
 
 ---

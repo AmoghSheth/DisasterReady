@@ -100,6 +100,6 @@ The app now uses the following localStorage keys:
 
 The app no longer depends on:
 - Supabase client library (can be removed from package.json if not used elsewhere)
-- Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
+- Supabase environment variables (SUPABASE_URL, SUPABASE_ANON_KEY)
 
 However, you may want to keep `/src/lib/supabaseClient.ts` if other parts of the app use Supabase for data storage.

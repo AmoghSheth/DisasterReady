@@ -8,6 +8,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    open: true,
+  },
+  preview: {
+    port: 8080,
+    open: true,
   },
   plugins: [
     react(),
@@ -19,4 +24,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  envPrefix: ['VITE_', 'OPENWEATHERMAP_', 'GEMINI_', 'GOOGLE_MAPS_'],
 }));

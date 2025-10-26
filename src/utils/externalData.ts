@@ -1,7 +1,7 @@
 
 // Utility for weather and disaster data
 
-const OPENWEATHERMAP_API_KEY = import.meta.env.VITE_OPENWEATHERMAP_API_KEY;
+const OPENWEATHERMAP_API_KEY = import.meta.env.OPENWEATHERMAP_API_KEY;
 const OPENWEATHERMAP_BASE_V3 = 'https://api.openweathermap.org/data/3.0';
 const FEMA_BASE = 'https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries';
 
@@ -194,7 +194,7 @@ export async function getNwsAlertsByLatLon(lat: number, lon: number) {
 export async function getAIAssessment(weatherData: any) {
   console.log('[Gemini AI] Starting AI risk assessment...');
   
-  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  const GEMINI_API_KEY = import.meta.env.GEMINI_API_KEY;
   
   if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
     console.warn('[Gemini AI] API key not configured');

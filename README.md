@@ -43,14 +43,16 @@ A comprehensive disaster preparedness application built with React, TypeScript, 
 
 3. Create a `.env` file with your API keys:
    ```
-   VITE_OPENWEATHERMAP_API_KEY=your_key_here
-   VITE_GOOGLE_MAPS_API_KEY=your_key_here
+   OPENWEATHERMAP_API_KEY=your_key_here
+   GOOGLE_MAPS_API_KEY=your_key_here
    ```
 
 4. Start the development server:
    ```bash
    npm run dev
    ```
+
+   The app will automatically open in your browser with a **mobile phone viewport** (430px width, centered). See [MOBILE_DEV.md](./MOBILE_DEV.md) for more details.
 
 ### Building for Production
 
