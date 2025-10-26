@@ -64,21 +64,6 @@
     /* Add a subtle gradient for dark mode */
     @apply dark:bg-gradient-to-br dark:from-dark-background dark:to-[#1a202c];
   }
-
-  /* Mobile-first viewport constraint for development */
-  #root {
-    max-width: 430px;
-    margin: 0 auto;
-    min-height: 100vh;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Remove constraint on actual mobile devices */
-  @media (max-width: 430px) {
-    #root {
-      box-shadow: none;
-    }
-  }
   
   h1, h2, h3, h4, h5, h6 {
     @apply font-inter font-semibold tracking-tight;

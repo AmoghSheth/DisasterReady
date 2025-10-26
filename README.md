@@ -52,8 +52,6 @@ A comprehensive disaster preparedness application built with React, TypeScript, 
    npm run dev
    ```
 
-   The app will automatically open in your browser with a **mobile phone viewport** (430px width, centered). See [MOBILE_DEV.md](./MOBILE_DEV.md) for more details.
-
 ### Building for Production
 
 ```bash
