@@ -11,6 +11,7 @@ import { NotificationProvider } from './contexts/NotificationContext.tsx';
 import LocationProvider from './contexts/LocationContext.tsx';
 import { HouseholdProvider } from './contexts/HouseholdContext.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
+import OrientationGuard from './components/OrientationGuard.tsx';
 
 const queryClient = new QueryClient();
 
@@ -20,17 +21,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <GoogleMapsProvider>
-          <NotificationProvider>
-            <LocationProvider>
-              <HouseholdProvider>
-                <AuthProvider>
-                  <App />
-                </AuthProvider>
-              </HouseholdProvider>
-            </LocationProvider>
-          </NotificationProvider>
-        </GoogleMapsProvider>
+        <OrientationGuard>
+          <GoogleMapsProvider>
+            <NotificationProvider>
+              <LocationProvider>
+                <HouseholdProvider>
+                  <AuthProvider>
+                    <App />
+                  </AuthProvider>
+                </HouseholdProvider>
+              </LocationProvider>
+            </NotificationProvider>
+          </GoogleMapsProvider>
+        </OrientationGuard>
       </TooltipProvider>
     </QueryClientProvider>
   </React.StrictMode>
