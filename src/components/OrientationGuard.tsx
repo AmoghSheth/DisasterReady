@@ -101,15 +101,6 @@ const OrientationGuard = ({ children }: OrientationGuardProps) => {
             <Logo size="md" showText={true} />
           </div>
           
-          <p className="text-xs text-gray-400 mb-2">
-            Powered by
-          </p>
-          <div className="flex justify-center items-center">
-            <span className="text-2xl font-bold">
-              <span className="text-disaster-blue">Disaster</span>
-              <span className="text-disaster-green">Ready</span>
-            </span>
-          </div>
           <p className="text-xs text-gray-400 mt-2">
             Stay prepared. Stay safe.
           </p>
