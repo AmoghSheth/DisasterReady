@@ -237,7 +237,7 @@ Respond ONLY with the JSON object, no markdown, no extra text.`;
     console.log('[Gemini AI] Sending prompt to Gemini API');
     console.log('[Gemini AI] Prompt preview:', prompt.substring(0, 200) + '...');
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
     console.log('[Gemini AI] API URL:', apiUrl.replace(GEMINI_API_KEY, 'API_KEY_HIDDEN'));
 
     const response = await fetch(apiUrl, {
