@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,17 @@ interface NotificationPanelProps {
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, onClose }) => {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotification } = useNotifications();
+
+  // Auto-close after 4 seconds
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 4000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -51,6 +62,15 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, onClose }
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 z-40"
         onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overscrollBehavior: 'none',
+          touchAction: 'none',
+        }}
       />
       
       {/* Panel */}
@@ -60,8 +80,19 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, onClose }
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          overscrollBehavior: 'contain',
+        }}
+        onClick={onClose}
       >
-        <div className="flex flex-col h-full">
+        <div 
+          className="flex flex-col h-full"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
             <div className="flex items-center gap-2">

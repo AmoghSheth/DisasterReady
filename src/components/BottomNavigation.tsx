@@ -16,7 +16,14 @@ const BottomNavigation = () => {
   ];
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 px-4 z-10 dark:bg-dark-card dark:border-dark-border">
+    <div 
+      className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 px-4 z-50 dark:bg-dark-card dark:border-dark-border"
+      style={{
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+        position: 'fixed',
+        bottom: 0,
+      }}
+    >
       {navItems.map((item) => {
         const isActive = location.pathname === item.path;
         return (
