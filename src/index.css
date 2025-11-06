@@ -57,12 +57,24 @@
   
   html, body {
     @apply font-inter antialiased;
+    height: 100%;
+    width: 100%;
+    position: fixed;
+    overflow: hidden;
   }
 
   body {
     @apply bg-background text-foreground;
     /* Add a subtle gradient for dark mode */
     @apply dark:bg-gradient-to-br dark:from-dark-background dark:to-[#1a202c];
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
   
   h1, h2, h3, h4, h5, h6 {
