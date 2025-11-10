@@ -37,11 +37,12 @@ const basePlans: Plan = {
     { id: 'fl3', title: 'Create evacuation plan with multiple routes', baseQuantity: 1 },
     { id: 'fl4', title: 'Move valuables to higher floors', baseQuantity: 1 },
   ],
-  wildfire: [
-    { id: 'wf1', title: 'Create defensible space around home', baseQuantity: 1 },
-    { id: 'wf2', title: 'Use fire-resistant materials', baseQuantity: 1 },
-    { id: 'wf3', title: 'Prepare go-bag with essentials', baseQuantity: 1 },
-    { id: 'wf4', title: 'Plan multiple evacuation routes', baseQuantity: 1 },
+  tornado: [
+    { id: 'to1', title: 'Identify safe room or shelter area in your home', baseQuantity: 1 },
+    { id: 'to2', title: 'Practice tornado drill with family', baseQuantity: 1 },
+    { id: 'to3', title: 'Prepare emergency kit in safe room', baseQuantity: 1 },
+    { id: 'to4', title: 'Install weather radio for tornado warnings', baseQuantity: 1 },
+    { id: 'to5', title: 'Secure outdoor furniture and objects', baseQuantity: 1 },
   ],
   hurricane: [
     { id: 'hu1', title: 'Know evacuation zone and routes', baseQuantity: 1 },
@@ -152,8 +153,8 @@ const Plan = () => {
     if (weatherAlerts.some(a => /storm|tornado|hurricane/i.test(a.event))) {
       highlightIds.push('hu1', 'hu2', 'hu4');
     }
-    if (weatherAlerts.some(a => /fire|wildfire/i.test(a.event))) {
-      highlightIds.push('wf1', 'wf3', 'wf4');
+    if (weatherAlerts.some(a => /tornado/i.test(a.event))) {
+      highlightIds.push('to1', 'to3', 'to4');
     }
     if (weatherAlerts.some(a => /earthquake/i.test(a.event))) {
       highlightIds.push('eq2', 'eq5');
@@ -234,7 +235,7 @@ const Plan = () => {
           <TabsList className="w-full mb-4 grid grid-cols-4">
             <TabsTrigger value="earthquake">Earthquake</TabsTrigger>
             <TabsTrigger value="flood">Flood</TabsTrigger>
-            <TabsTrigger value="wildfire">Wildfire</TabsTrigger>
+            <TabsTrigger value="tornado">Tornado</TabsTrigger>
             <TabsTrigger value="hurricane">Hurricane</TabsTrigger>
           </TabsList>
           
