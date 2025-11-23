@@ -1,7 +1,7 @@
 # OpenWeatherMap One Call API 3.0 - Usage Documentation
 
 ## Overview
-This app now uses **OpenWeather One Call API 3.0** subscription. All API calls have been updated to use the 3.0 endpoints with proper parameters.
+This app nw uses **OpenWeather One Call API 3.0** subscription. All API calls have been updated to use the 3.0 endpoints with proper parameters.
 
 ## API Subscription Details
 - **Product**: One Call API 3.0 ("One Call by Call" subscription)

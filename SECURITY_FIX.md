@@ -6,7 +6,6 @@ Your `.env` file with API keys was committed to git history **at least 6 times**
 - Your local git history
 - GitHub repository (if pushed)
 - Any clones of the repository
-
 ## ✅ What I've Already Done
 
 1. ✅ Added `.env` to `.gitignore`

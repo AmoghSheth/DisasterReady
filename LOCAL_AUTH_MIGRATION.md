@@ -1,6 +1,6 @@
 # Local Authentication Migration
 
-## Summary
+## Sumary
 Successfully migrated DisasterReady app from Supabase authentication to a local storage-based authentication system.
 
 ## Changes Made

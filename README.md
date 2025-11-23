@@ -1,6 +1,6 @@
 # DisasterReady
 
-A comprehensive disaster preparedness application built with React, TypeScript, and Vite. This app helps users prepare for and respond to natural disasters with real-time weather alerts, risk assessments, emergency planning, and resource mapping.
+A comprehensive disaster preparedness application built with React, TypeScript, and Vite. This app helps users prepare for and resond to natural disasters with real-time weather alerts, risk assessments, emergency planning, and resource mapping.
 
 ## Features
 

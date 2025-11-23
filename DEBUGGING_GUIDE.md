@@ -1,6 +1,6 @@
 # Debugging Guide for DisasterReady App
 
-## Recent Changes Made
+## Recent Chages Made
 
 ### 1. ✅ Gemini AI Integration (Fixed)
 The app now properly uses **Google Gemini AI** for risk assessment instead of falling back to the local system.
